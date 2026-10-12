@@ -64,15 +64,15 @@ const theme = createTheme({
   },
 });
 
-async function api(path, { token, method = "GET", body } = {}) {
+async function api(path, { token, method = "GET", body, formData } = {}) {
   const response = await fetch(`${API}${path}`, {
     method,
     headers: {
       Accept: "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(body ? { "Content-Type": "application/json" } : {}),
+      ...(body && !formData ? { "Content-Type": "application/json" } : {}),
     },
-    body: body ? JSON.stringify(body) : undefined,
+    body: formData || (body ? JSON.stringify(body) : undefined),
   });
   const data = response.status === 204 ? null : await response.json();
   if (!response.ok)
@@ -280,6 +280,7 @@ function ExpenseDialog({
   onClose,
   done,
 }) {
+  const [receipt, setReceipt] = useState(null);
   const [form, setForm] = useState(() => ({
     payer_id: expense?.payer_id || "",
     amount: expense ? expense.amount_cents / 100 : "",
@@ -289,6 +290,12 @@ function ExpenseDialog({
     split_type: expense?.split_type || "equal",
   }));
   const save = async () => {
+    let receiptUrl = expense?.receipt_path || null;
+    if (receipt) {
+      const formData = new FormData();
+      formData.append("receipt", receipt);
+      receiptUrl = (await api("/receipts", { token, method: "POST", formData })).url;
+    }
     const total = cents(form.amount);
     const shares = members.map((member, index) => ({
       user_id: member.user_id,
@@ -311,6 +318,7 @@ function ExpenseDialog({
         spent_on: form.spent_on,
         category: form.category || null,
         comment: form.comment || null,
+        receipt_url: receiptUrl,
         split_type: form.split_type,
         shares,
       },
@@ -346,6 +354,20 @@ function ExpenseDialog({
         value={form.amount}
         onChange={(e) => setForm({ ...form, amount: e.target.value })}
       />
+      <Button component="label" variant="outlined">
+        {receipt ? `Чек: ${receipt.name}` : "Прикрепить чек"}
+        <input
+          hidden
+          type="file"
+          accept="image/jpeg,image/png,application/pdf"
+          onChange={(event) => setReceipt(event.target.files?.[0] || null)}
+        />
+      </Button>
+      {expense?.receipt_path && !receipt && (
+        <Typography variant="body2" color="text.secondary">
+          Чек уже прикреплён.
+        </Typography>
+      )}
       <TextField
         select
         label="Способ деления"
