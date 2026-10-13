@@ -7,14 +7,13 @@ import FormDialog from "./FormDialog";
 export default function ExpenseDialog({ group, members, expense, token, open, onClose, done }) {
   const [receipt, setReceipt] = useState(null);
   const [allocations, setAllocations] = useState(() => createAllocations(members, expense));
-  const [form, setForm] = useState(() => ({
-    payer_id: expense?.payer_id || "",
-    amount: expense ? expense.amount_cents / 100 : "",
-    spent_on: expense?.spent_on || new Date().toISOString().slice(0, 10),
-    category: expense?.category || "",
-    comment: expense?.comment || "",
-    split_type: expense?.split_type || "equal",
-  }));
+  const [form, setForm] = useState(() => createForm(expense));
+
+  const resetForm = () => {
+    setForm(createForm());
+    setReceipt(null);
+    setAllocations(createAllocations(members));
+  };
 
   const updateField = (field) => (event) => setForm({ ...form, [field]: event.target.value });
   const updateAllocation = (userId, field) => (event) =>
@@ -68,7 +67,8 @@ export default function ExpenseDialog({ group, members, expense, token, open, on
         shares,
       },
     });
-    done();
+    resetForm();
+    await done();
     onClose();
   };
 
@@ -138,6 +138,17 @@ export default function ExpenseDialog({ group, members, expense, token, open, on
       <TextField label="Комментарий" multiline minRows={2} value={form.comment} onChange={updateField("comment")} />
     </FormDialog>
   );
+}
+
+function createForm(expense) {
+  return {
+    payer_id: expense?.payer_id || "",
+    amount: expense ? expense.amount_cents / 100 : "",
+    spent_on: expense?.spent_on || new Date().toISOString().slice(0, 10),
+    category: expense?.category || "",
+    comment: expense?.comment || "",
+    split_type: expense?.split_type || "equal",
+  };
 }
 
 function createAllocations(members, expense) {

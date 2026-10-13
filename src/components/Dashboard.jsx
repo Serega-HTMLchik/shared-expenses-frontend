@@ -114,6 +114,8 @@ export default function Dashboard({ session, logout }) {
   };
 
   const deleteExpense = async (expenseId) => {
+    if (group.closed_at) return;
+
     await api(`/groups/${group.id}/expenses/${expenseId}`, {
       token: session.token,
       method: "DELETE",
@@ -203,15 +205,17 @@ export default function Dashboard({ session, logout }) {
         open={dialog === "invite"}
         onClose={() => setDialog("")}
       />
-      <ExpenseDialog
-        group={group}
-        members={group?.members || []}
-        expense={editing}
-        token={session.token}
-        open={dialog === "expense"}
-        onClose={() => setDialog("")}
-        done={refresh}
-      />
+      {dialog === "expense" && (
+        <ExpenseDialog
+          group={group}
+          members={group?.members || []}
+          expense={editing}
+          token={session.token}
+          open
+          onClose={() => setDialog("")}
+          done={refresh}
+        />
+      )}
       <ExpenseDetailsDialog
         expense={viewing}
         currency={group?.currency}
@@ -419,6 +423,7 @@ function ExpensesTab({ group, expenses, onCreate, onEdit, onDelete, onView }) {
             secondaryAction={
               <Stack direction="row">
                 <IconButton
+                  disabled={Boolean(group.closed_at)}
                   onClick={(event) => {
                     event.stopPropagation();
                     onEdit(item);
@@ -428,6 +433,7 @@ function ExpensesTab({ group, expenses, onCreate, onEdit, onDelete, onView }) {
                 </IconButton>
                 <IconButton
                   color="error"
+                  disabled={Boolean(group.closed_at)}
                   onClick={(event) => {
                     event.stopPropagation();
                     onDelete(item.id);
