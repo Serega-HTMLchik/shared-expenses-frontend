@@ -3,6 +3,7 @@ import {
   Add,
   Delete,
   Edit,
+  ExpandMore,
   Group,
   Logout,
   Notifications,
@@ -13,6 +14,9 @@ import {
   Send,
 } from "@mui/icons-material";
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Alert,
   AppBar,
   Avatar,
@@ -26,13 +30,17 @@ import {
   CircularProgress,
   Container,
   Fab,
+  FormControl,
   Grid,
   IconButton,
+  InputLabel,
   List,
   ListItem,
   ListItemAvatar,
   ListItemText,
+  MenuItem,
   Paper,
+  Select,
   Stack,
   Tab,
   Tabs,
@@ -485,6 +493,7 @@ function BalancesOverview({ debts, settlements, onBack }) {
 function GroupList({ groups, group, balanceData, currentUserId, onOpen }) {
   const [statusFilter, setStatusFilter] = useState("all");
   const [balanceFilter, setBalanceFilter] = useState("all");
+  const [sort, setSort] = useState("newest");
   const balancesByGroup = Object.fromEntries(
     balanceData.map((item) => [
       item.group_id,
@@ -510,6 +519,15 @@ function GroupList({ groups, group, balanceData, currentUserId, onOpen }) {
 
     return true;
   });
+  const sortedGroups = [...filteredGroups].sort((left, right) => {
+    if (sort === "name") {
+      return left.name.localeCompare(right.name, "ru");
+    }
+
+    const difference = new Date(right.created_at).getTime() - new Date(left.created_at).getTime();
+
+    return sort === "oldest" ? -difference : difference;
+  });
 
   return (
     <Paper className="panel" elevation={0}>
@@ -518,6 +536,19 @@ function GroupList({ groups, group, balanceData, currentUserId, onOpen }) {
         <Chip label={groups.length} size="small" />
       </Stack>
       <Stack spacing={1.5} sx={{ px: 2, pb: 1.5 }}>
+        <FormControl fullWidth size="small">
+          <InputLabel id="group-sort-label">Сортировка</InputLabel>
+          <Select
+            label="Сортировка"
+            labelId="group-sort-label"
+            value={sort}
+            onChange={(event) => setSort(event.target.value)}
+          >
+            <MenuItem value="newest">Сначала новые</MenuItem>
+            <MenuItem value="oldest">Сначала старые</MenuItem>
+            <MenuItem value="name">По названию</MenuItem>
+          </Select>
+        </FormControl>
         <Box>
           <Typography color="text.secondary" variant="caption">
             Статус
@@ -594,7 +625,7 @@ function GroupList({ groups, group, balanceData, currentUserId, onOpen }) {
         </Box>
       </Stack>
       <List>
-        {filteredGroups.map((item) => (
+        {sortedGroups.map((item) => (
           <ListItem
             key={item.id}
             className={`group-item ${group?.id === item.id ? "active" : ""}`}
@@ -620,7 +651,7 @@ function GroupList({ groups, group, balanceData, currentUserId, onOpen }) {
             />
           </ListItem>
         ))}
-        {filteredGroups.length === 0 && (
+        {sortedGroups.length === 0 && (
           <Box className="empty">
             <Group color="disabled" sx={{ fontSize: 50 }} />
             <Typography>
@@ -730,6 +761,20 @@ function GroupDetails({
 }
 
 function ExpensesTab({ group, expenses, onCreate, onEdit, onDelete, onView }) {
+  const expensesByMonth = Object.values(
+    expenses.reduce((months, expense) => {
+      const monthKey = String(expense.spent_on).slice(0, 7);
+
+      if (!months[monthKey]) {
+        months[monthKey] = [];
+      }
+
+      months[monthKey].push(expense);
+
+      return months;
+    }, {}),
+  ).sort((left, right) => String(right[0].spent_on).localeCompare(String(left[0].spent_on)));
+
   return (
     <>
       <Button
@@ -741,59 +786,98 @@ function ExpensesTab({ group, expenses, onCreate, onEdit, onDelete, onView }) {
       >
         Расход
       </Button>
-      <List>
-        {expenses.map((item) => (
-          <ListItem
-            key={item.id}
-            divider
-            sx={{ cursor: "pointer", pr: 14 }}
-            onClick={() => onView(item)}
-            secondaryAction={
-              <Stack direction="row">
-                <IconButton
-                  disabled={Boolean(group.closed_at)}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onEdit(item);
-                  }}
-                >
-                  <Edit />
-                </IconButton>
-                <IconButton
-                  color="error"
-                  disabled={Boolean(group.closed_at)}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onDelete(item.id);
-                  }}
-                >
-                  <Delete />
-                </IconButton>
-              </Stack>
-            }
+      <Stack spacing={1} sx={{ mt: 1 }}>
+        {expensesByMonth.map((monthExpenses) => (
+          <Accordion
+            key={monthExpenses[0].spent_on.slice(0, 7)}
+            defaultExpanded
+            disableGutters
           >
-            <ListItemAvatar>
-              <Avatar sx={{ bgcolor: "secondary.light" }}>
-                <ReceiptLong />
-              </Avatar>
-            </ListItemAvatar>
-            <ListItemText
-              primary={item.category || "Расход"}
-              secondary={`${item.payer?.name || "Участник"} · ${formatDate(item.spent_on)}`}
-            />
-            <Typography fontWeight={800} sx={{ flexShrink: 0, mr: 1 }}>
-              {money(item.amount_cents, group.currency)}
-            </Typography>
-          </ListItem>
+            <AccordionSummary expandIcon={<ExpandMore />}>
+              <Typography fontWeight={700} sx={{ flexGrow: 1 }}>
+                {formatMonth(monthExpenses[0].spent_on)}
+              </Typography>
+              <Chip label={monthExpenses.length} size="small" sx={{ mr: 1 }} />
+            </AccordionSummary>
+            <AccordionDetails sx={{ p: 0 }}>
+              <List disablePadding>
+                {monthExpenses.map((item) => (
+                  <ExpenseListItem
+                    key={item.id}
+                    group={group}
+                    item={item}
+                    onDelete={onDelete}
+                    onEdit={onEdit}
+                    onView={onView}
+                  />
+                ))}
+              </List>
+            </AccordionDetails>
+          </Accordion>
         ))}
         {expenses.length === 0 && (
           <Box className="empty">
             <Typography>Расходов пока нет</Typography>
           </Box>
         )}
-      </List>
+      </Stack>
     </>
   );
+}
+
+function ExpenseListItem({ group, item, onDelete, onEdit, onView }) {
+  return (
+    <ListItem
+      divider
+      sx={{ cursor: "pointer", pr: 14 }}
+      onClick={() => onView(item)}
+      secondaryAction={
+        <Stack direction="row">
+          <IconButton
+            disabled={Boolean(group.closed_at)}
+            onClick={(event) => {
+              event.stopPropagation();
+              onEdit(item);
+            }}
+          >
+            <Edit />
+          </IconButton>
+          <IconButton
+            color="error"
+            disabled={Boolean(group.closed_at)}
+            onClick={(event) => {
+              event.stopPropagation();
+              onDelete(item.id);
+            }}
+          >
+            <Delete />
+          </IconButton>
+        </Stack>
+      }
+    >
+      <ListItemAvatar>
+        <Avatar sx={{ bgcolor: "secondary.light" }}>
+          <ReceiptLong />
+        </Avatar>
+      </ListItemAvatar>
+      <ListItemText
+        primary={item.category || "Расход"}
+        secondary={`${item.payer?.name || "Участник"} · ${formatDate(item.spent_on)}`}
+      />
+      <Typography fontWeight={800} sx={{ flexShrink: 0, mr: 1 }}>
+        {money(item.amount_cents, group.currency)}
+      </Typography>
+    </ListItem>
+  );
+}
+
+function formatMonth(value) {
+  const date = new Date(`${String(value).slice(0, 7)}-01T12:00:00`);
+
+  return new Intl.DateTimeFormat("ru-RU", {
+    month: "long",
+    year: "numeric",
+  }).format(date);
 }
 
 function BalancesTab({
