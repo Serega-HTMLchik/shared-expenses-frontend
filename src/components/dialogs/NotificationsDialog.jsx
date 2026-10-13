@@ -25,7 +25,7 @@ export default function NotificationsDialog({
             <ListItem
               key={item.id}
               divider
-              sx={{ opacity: item.read_at ? 0.55 : 1 }}
+              sx={{ opacity: item.read_at ? 0.55 : 1, pr: item.read_at ? 2 : 14 }}
               secondaryAction={
                 !item.read_at && (
                   <Button size="small" onClick={() => onRead(item.id)}>
