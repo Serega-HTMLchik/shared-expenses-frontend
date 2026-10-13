@@ -376,19 +376,25 @@ function GroupList({ groups, group, onOpen }) {
             key={item.id}
             className={`group-item ${group?.id === item.id ? "active" : ""}`}
             onClick={() => onOpen(item)}
-            secondaryAction={
-              <Chip
-                size="small"
-                label={item.closed_at ? "Закрыта" : item.currency}
-              />
-            }
+            sx={{ gap: 1, py: 1.25 }}
           >
             <ListItemAvatar>
               <Avatar>
                 <Group />
               </Avatar>
             </ListItemAvatar>
-            <ListItemText primary={item.name} secondary={item.currency} />
+            <ListItemText
+              primary={item.name}
+              secondary={item.currency}
+              primaryTypographyProps={{ noWrap: true }}
+              secondaryTypographyProps={{ noWrap: true }}
+              sx={{ minWidth: 0 }}
+            />
+            <Chip
+              size="small"
+              label={item.closed_at ? "Закрыта" : item.currency}
+              sx={{ flexShrink: 0 }}
+            />
           </ListItem>
         ))}
         {groups.length === 0 && (
