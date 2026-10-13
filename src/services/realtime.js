@@ -1,7 +1,11 @@
 import Echo from "laravel-echo";
 import Pusher from "pusher-js";
 
-const API_ORIGIN = "http://127.0.0.1:8000";
+const apiBaseUrl =
+  import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api/v1";
+const API_ORIGIN =
+  import.meta.env.VITE_API_ORIGIN ||
+  new URL(apiBaseUrl, window.location.origin).origin;
 
 export function subscribeToChanges({ token, userId, onChange }) {
   if (!import.meta.env.VITE_REVERB_APP_KEY) {

@@ -1,16 +1,48 @@
-# React + Vite
+# Клиент «Совместные расходы»
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + MUI интерфейс для API совместных расходов. Приложение поддерживает мгновенные обновления через Laravel Reverb.
 
-Currently, two official plugins are available:
+## Локальная разработка без Docker
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Требуется Node.js 22 или новее. Сначала подготовьте и запустите backend, затем создайте файл окружения:
 
-## React Compiler
+```bash
+cp .env.example .env
+npm install
+npm run dev
+```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+По умолчанию Vite откроет приложение на `http://localhost:5173`. Переменные в `.env`:
 
-## Expanding the ESLint configuration
+| Переменная | Назначение |
+| --- | --- |
+| `VITE_API_BASE_URL` | Базовый URL API, включая `/api/v1` |
+| `VITE_API_ORIGIN` | Origin Laravel для авторизации приватных WebSocket-каналов |
+| `VITE_REVERB_*` | Параметры подключения браузера к Reverb |
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Запуск в Docker
+
+Docker-конфигурация общая для frontend и backend и хранится в backend-репозитории. Из каталога `shared-expenses-backend` выполните:
+
+```bash
+cp docker-compose.env.example .env
+docker compose up --build
+```
+
+Откройте `http://localhost:5173`. Контейнер фронтенда передаёт `/api/*` в Laravel и `/app/*` в Reverb, поэтому браузер использует один origin и не требует отдельной настройки CORS.
+
+Для остановки используйте `docker compose down`; данные PostgreSQL и загруженные файлы сохраняются в Docker volumes.
+
+## Развёртывание на сервере
+
+Подробная последовательность и параметры почты описаны в [README backend](../shared-expenses-backend/README.md). Перед сборкой фронтенда обязательно задайте в `.env` backend-репозитория публичный домен, например:
+
+```dotenv
+FRONTEND_PUBLIC_URL=https://expenses.example.com
+APP_URL=https://expenses.example.com
+FRONTEND_URL=https://expenses.example.com
+VITE_REVERB_PORT=443
+VITE_REVERB_SCHEME=https
+```
+
+Переменные `VITE_*` встраиваются в статическую сборку. После их изменения пересоберите frontend: `docker compose up -d --build frontend`.
