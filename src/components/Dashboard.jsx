@@ -38,7 +38,7 @@ import {
   Typography,
 } from "@mui/material";
 import { api } from "../services/api";
-import { money } from "../utils/formatters";
+import { formatDate, money } from "../utils/formatters";
 import AcceptInvite from "./dialogs/AcceptInvite";
 import ExpenseDetailsDialog from "./dialogs/ExpenseDetailsDialog";
 import ExpenseDialog from "./dialogs/ExpenseDialog";
@@ -445,7 +445,7 @@ function ExpensesTab({ group, expenses, onCreate, onEdit, onDelete, onView }) {
             </ListItemAvatar>
             <ListItemText
               primary={item.category || "Расход"}
-              secondary={`${item.payer?.name || "Участник"} · ${item.spent_on}`}
+              secondary={`${item.payer?.name || "Участник"} · ${formatDate(item.spent_on)}`}
             />
             <Typography fontWeight={800} sx={{ flexShrink: 0, mr: 1 }}>
               {money(item.amount_cents, group.currency)}

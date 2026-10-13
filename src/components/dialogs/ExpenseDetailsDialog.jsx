@@ -12,7 +12,7 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
-import { money } from "../../utils/formatters";
+import { formatDate, money } from "../../utils/formatters";
 
 const splitLabels = {
   equal: "Поровну",
@@ -164,12 +164,4 @@ function DetailRow({ label, value, emphasized = false }) {
       </Typography>
     </Stack>
   );
-}
-
-function formatDate(value) {
-  return new Intl.DateTimeFormat("ru-RU", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  }).format(new Date(value));
 }
