@@ -55,6 +55,8 @@ export default function Dashboard({ session, logout }) {
   const [expenses, setExpenses] = useState([]);
   const [balances, setBalances] = useState(null);
   const [allBalances, setAllBalances] = useState(null);
+  const [allSettlements, setAllSettlements] = useState([]);
+  const [section, setSection] = useState("groups");
   const [settlements, setSettlements] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [settlementTransfer, setSettlementTransfer] = useState(null);
@@ -119,14 +121,19 @@ export default function Dashboard({ session, logout }) {
   };
 
   const loadAllBalances = async () => {
-    setAllBalances(await api("/debts", { token: session.token }));
+    const [debts, history] = await Promise.all([
+      api("/debts", { token: session.token }),
+      api("/settlements", { token: session.token }),
+    ]);
+    setAllBalances(debts);
+    setAllSettlements(history);
   };
 
   return (
     <>
-      <DashboardHeader user={session.user} logout={logout} unread={notifications.filter((item) => !item.read_at).length} onNotifications={() => setDialog("notifications")} />
+      <DashboardHeader user={session.user} logout={logout} unread={notifications.filter((item) => !item.read_at).length} balanceCount={allBalances?.length || 0} onBalances={async () => { await loadAllBalances(); setSection("balances"); }} onNotifications={() => setDialog("notifications")} />
       <Container maxWidth="xl" sx={{ py: 3 }}>
-        <DashboardActions
+        {section === "balances" ? <BalancesOverview debts={allBalances || []} settlements={allSettlements} onBack={() => setSection("groups")} /> : <><DashboardActions
           loadGroups={loadGroups}
           loadAllBalances={loadAllBalances}
           openGroupDialog={() => setDialog("group")}
@@ -176,7 +183,7 @@ export default function Dashboard({ session, logout }) {
               onSettle={setSettlementTransfer}
             />
           </Grid>
-        </Grid>
+        </Grid></>}
       </Container>
       <Fab
         color="secondary"
@@ -228,7 +235,7 @@ export default function Dashboard({ session, logout }) {
   );
 }
 
-function DashboardHeader({ user, logout, unread, onNotifications }) {
+function DashboardHeader({ user, logout, unread, balanceCount, onBalances, onNotifications }) {
   return (
     <AppBar color="inherit" position="sticky" elevation={0}>
       <Toolbar>
@@ -243,6 +250,7 @@ function DashboardHeader({ user, logout, unread, onNotifications }) {
           <Typography fontWeight={800}>Делим вместе</Typography>
         </Stack>
         <Typography sx={{ mr: 1 }}>{user.name}</Typography>
+        <Button size="small" onClick={onBalances}><Badge badgeContent={balanceCount} color="primary">Балансы</Badge></Button>
         <IconButton onClick={onNotifications}><Badge badgeContent={unread} color="secondary"><Notifications /></Badge></IconButton>
         <IconButton onClick={logout}>
           <Logout />
@@ -284,6 +292,34 @@ function DashboardActions({ loadGroups, loadAllBalances, openGroupDialog }) {
           Группа
         </Button>
       </Stack>
+    </Stack>
+  );
+}
+
+function BalancesOverview({ debts, settlements, onBack }) {
+  return (
+    <Stack spacing={3}>
+      <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
+        <Box>
+          <Typography variant="h4">Балансы</Typography>
+          <Typography color="text.secondary">Все текущие задолженности и погашения</Typography>
+        </Box>
+        <Button onClick={onBack}>К группам</Button>
+      </Stack>
+      <Paper className="panel" elevation={0} sx={{ p: 2 }}>
+        <Typography variant="h6" sx={{ mb: 1 }}>Текущие задолженности</Typography>
+        <List>
+          {debts.map((item, index) => <ListItem key={`${item.currency}-${index}`} divider><ListItemText primary={`${item.group_name} · ${item.currency}`} secondary={`${item.from_user?.name || "Участник"} → ${item.to_user?.name || "Участник"} (${item.to_user?.email || ""})`} /><Typography fontWeight={800}>{money(item.amount_cents, item.currency)}</Typography></ListItem>)}
+          {debts.length === 0 && <Typography color="text.secondary">Непогашенных задолженностей нет.</Typography>}
+        </List>
+      </Paper>
+      <Paper className="panel" elevation={0} sx={{ p: 2 }}>
+        <Typography variant="h6" sx={{ mb: 1 }}>Все транзакции</Typography>
+        <List>
+          {settlements.map((item) => <ListItem key={item.id} divider><ListItemText primary={`${item.from_user?.name || "Участник"} → ${item.to_user?.name || "Участник"}`} secondary={`${item.group?.name || "Группа"} · ${item.status === "confirmed" ? "Подтверждено" : "Ожидает подтверждения"}`} /><Typography fontWeight={800}>{money(item.amount_cents, item.group?.currency)}</Typography></ListItem>)}
+          {settlements.length === 0 && <Typography color="text.secondary">Транзакций пока нет.</Typography>}
+        </List>
+      </Paper>
     </Stack>
   );
 }
