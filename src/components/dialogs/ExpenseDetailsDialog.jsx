@@ -1,46 +1,138 @@
-import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Stack, Typography } from "@mui/material";
+import { Image, OpenInNew } from "@mui/icons-material";
+import {
+  Box,
+  Button,
+  Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Divider,
+  Paper,
+  Stack,
+  Typography,
+} from "@mui/material";
 import { money } from "../../utils/formatters";
 
-export default function ExpenseDetailsDialog({ expense, currency, open, onClose }) {
+const splitLabels = {
+  equal: "Поровну",
+  shares: "Долями",
+  exact: "Точными суммами",
+};
+
+export default function ExpenseDetailsDialog({
+  expense,
+  currency,
+  open,
+  onClose,
+}) {
   if (!expense) return null;
+
+  const receiptIsImage = /\.(jpe?g|png|webp|gif)(?:\?.*)?$/i.test(
+    expense.receipt_path || "",
+  );
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
       <DialogTitle>Детали расхода</DialogTitle>
       <DialogContent>
-        <Stack spacing={2} sx={{ pt: 1 }}>
-          <Box>
-            <Typography variant="overline" color="text.secondary">
-              Категория
-            </Typography>
-            <Typography variant="h6">{expense.category || "Расход"}</Typography>
-          </Box>
-          <Divider />
-          <DetailRow label="Сумма" value={money(expense.amount_cents, currency)} emphasized />
-          <DetailRow label="Оплатил" value={expense.payer?.name || "Участник"} />
-          <DetailRow label="Дата" value={expense.spent_on} />
-          <DetailRow label="Способ деления" value={expense.split_type} />
-          {expense.comment && (
+        <Stack spacing={2.5} sx={{ pt: 1 }}>
+          <Stack
+            direction="row"
+            justifyContent="space-between"
+            spacing={2}
+            sx={{ alignItems: "center" }}
+          >
             <Box>
               <Typography variant="overline" color="text.secondary">
-                Комментарий
+                Категория
               </Typography>
-              <Typography>{expense.comment}</Typography>
             </Box>
+            <Chip
+              label={splitLabels[expense.split_type] || expense.split_type}
+              size="small"
+              color="primary"
+              variant="outlined"
+            />
+          </Stack>
+
+          <Stack
+            direction="row"
+            justifyContent="space-between"
+            spacing={2}
+            alignItems="flex-start"
+          >
+            <Box>
+              <Typography variant="h6">
+                {expense.category || "Расход"}
+              </Typography>
+            </Box>
+          </Stack>
+          <Paper
+            variant="outlined"
+            sx={{ p: 2, borderRadius: 1, bgcolor: "rgba(91, 75, 219, 0.04)" }}
+          >
+            <Stack spacing={1.5} divider={<Divider flexItem />}>
+              <DetailRow
+                label="Сумма"
+                value={money(expense.amount_cents, currency)}
+                emphasized
+              />
+              <DetailRow
+                label="Оплатил"
+                value={expense.payer?.name || "Участник"}
+              />
+              <DetailRow label="Дата" value={formatDate(expense.spent_on)} />
+            </Stack>
+          </Paper>
+          {expense.comment && (
+            <DetailSection title="Комментарий">
+              <Typography sx={{ whiteSpace: "pre-wrap" }}>
+                {expense.comment}
+              </Typography>
+            </DetailSection>
+          )}
+          {expense.receipt_path && (
+            <DetailSection title="Чек">
+              {receiptIsImage ? (
+                <Box
+                  component="img"
+                  src={expense.receipt_path}
+                  alt={`Чек по расходу «${expense.category || "Расход"}»`}
+                  sx={{
+                    display: "block",
+                    width: "100%",
+                    maxHeight: 300,
+                    borderRadius: 2,
+                    objectFit: "contain",
+                    bgcolor: "grey.100",
+                  }}
+                />
+              ) : (
+                <Button
+                  component="a"
+                  href={expense.receipt_path}
+                  target="_blank"
+                  rel="noreferrer"
+                  startIcon={<OpenInNew />}
+                >
+                  Открыть прикреплённый чек
+                </Button>
+              )}
+            </DetailSection>
           )}
           {expense.shares?.length > 0 && (
-            <Box>
-              <Typography variant="overline" color="text.secondary">
-                Доли
-              </Typography>
-              {expense.shares.map((share) => (
-                <DetailRow
-                  key={share.id}
-                  label={share.user?.name || share.user?.email}
-                  value={money(share.amount_cents, currency)}
-                />
-              ))}
-            </Box>
+            <DetailSection title="Доли">
+              <Stack spacing={1}>
+                {expense.shares.map((share) => (
+                  <DetailRow
+                    key={share.id}
+                    label={share.user?.name || share.user?.email}
+                    value={money(share.amount_cents, currency)}
+                  />
+                ))}
+              </Stack>
+            </DetailSection>
           )}
         </Stack>
       </DialogContent>
@@ -51,11 +143,35 @@ export default function ExpenseDetailsDialog({ expense, currency, open, onClose 
   );
 }
 
+function DetailSection({ title, children }) {
+  return (
+    <Box>
+      <Stack direction="row" spacing={0.5} sx={{ mb: 1, alignItems: "center" }}>
+        {title === "Чек" && <Image fontSize="small" color="action" />}
+        <Typography variant="overline" color="text.secondary">
+          {title}
+        </Typography>
+      </Stack>
+      {children}
+    </Box>
+  );
+}
+
 function DetailRow({ label, value, emphasized = false }) {
   return (
     <Stack direction="row" justifyContent="space-between" spacing={2}>
       <Typography color="text.secondary">{label}</Typography>
-      <Typography fontWeight={emphasized ? 800 : undefined}>{value}</Typography>
+      <Typography textAlign="right" fontWeight={emphasized ? 800 : undefined}>
+        {value}
+      </Typography>
     </Stack>
   );
+}
+
+function formatDate(value) {
+  return new Intl.DateTimeFormat("ru-RU", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(new Date(value));
 }
