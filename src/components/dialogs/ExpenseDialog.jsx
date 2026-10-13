@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Button, MenuItem, TextField, Typography } from "@mui/material";
+import { Alert, Box, Button, Divider, MenuItem, Stack, TextField, Typography } from "@mui/material";
 import { api } from "../../services/api";
 import { cents } from "../../utils/formatters";
 import FormDialog from "./FormDialog";
 
 export default function ExpenseDialog({ group, members, expense, token, open, onClose, done }) {
   const [receipt, setReceipt] = useState(null);
+  const [allocations, setAllocations] = useState(() => createAllocations(members, expense));
   const [form, setForm] = useState(() => ({
     payer_id: expense?.payer_id || "",
     amount: expense ? expense.amount_cents / 100 : "",
@@ -16,6 +17,24 @@ export default function ExpenseDialog({ group, members, expense, token, open, on
   }));
 
   const updateField = (field) => (event) => setForm({ ...form, [field]: event.target.value });
+  const updateAllocation = (userId, field) => (event) =>
+    setAllocations({
+      ...allocations,
+      [userId]: { ...allocations[userId], [field]: event.target.value },
+    });
+
+  const total = cents(form.amount);
+  const exactTotal = members.reduce(
+    (sum, member) => sum + cents(allocations[member.user_id]?.amount),
+    0,
+  );
+  const splitIsValid =
+    form.split_type === "equal" ||
+    (form.split_type === "shares" &&
+      members.every((member) => Number.isInteger(Number(allocations[member.user_id]?.units)) && Number(allocations[member.user_id]?.units) > 0)) ||
+    (form.split_type === "exact" &&
+      members.every((member) => allocations[member.user_id]?.amount !== "") &&
+      exactTotal === total);
 
   const uploadReceipt = async () => {
     if (!receipt) return expense?.receipt_path || null;
@@ -26,15 +45,11 @@ export default function ExpenseDialog({ group, members, expense, token, open, on
   };
 
   const save = async () => {
-    const total = cents(form.amount);
-    const shares = members.map((member, index) => ({
+    const shares = members.map((member) => ({
       user_id: member.user_id,
-      ...(form.split_type === "shares" ? { units: 1 } : {}),
+      ...(form.split_type === "shares" ? { units: Number(allocations[member.user_id].units) } : {}),
       ...(form.split_type === "exact"
-        ? {
-            amount_cents:
-              Math.floor(total / members.length) + (index === 0 ? total % members.length : 0),
-          }
+        ? { amount_cents: cents(allocations[member.user_id].amount) }
         : {}),
     }));
     const path = `/groups/${group.id}/expenses${expense ? `/${expense.id}` : ""}`;
@@ -63,7 +78,7 @@ export default function ExpenseDialog({ group, members, expense, token, open, on
       open={open}
       onClose={onClose}
       onSubmit={save}
-      disabled={!form.payer_id || !form.amount}
+      disabled={!form.payer_id || !form.amount || !splitIsValid}
       submit={expense ? "Обновить" : "Добавить"}
     >
       <TextField select required label="Кто заплатил" value={form.payer_id} onChange={updateField("payer_id")}>
@@ -88,9 +103,56 @@ export default function ExpenseDialog({ group, members, expense, token, open, on
         <MenuItem value="shares">Долями</MenuItem>
         <MenuItem value="exact">Точными суммами</MenuItem>
       </TextField>
+      {form.split_type !== "equal" && (
+        <Box>
+          <Typography variant="subtitle2" sx={{ mb: 1 }}>
+            {form.split_type === "shares" ? "Количество долей" : "Сумма для каждого участника"}
+          </Typography>
+          <Stack spacing={1} divider={<Divider flexItem />}>
+            {members.map((member) => (
+              <Stack key={member.user_id} direction="row" spacing={1} alignItems="center">
+                <Typography sx={{ flexGrow: 1 }}>
+                  {member.user?.name || member.user?.email}
+                </Typography>
+                <TextField
+                  size="small"
+                  required
+                  type="number"
+                  label={form.split_type === "shares" ? "Долей" : "Сумма"}
+                  inputProps={form.split_type === "shares" ? { min: 1, step: 1 } : { min: 0, step: 0.01 }}
+                  value={form.split_type === "shares" ? allocations[member.user_id]?.units : allocations[member.user_id]?.amount}
+                  onChange={updateAllocation(member.user_id, form.split_type === "shares" ? "units" : "amount")}
+                />
+              </Stack>
+            ))}
+          </Stack>
+          {form.split_type === "exact" && form.amount && exactTotal !== total && (
+            <Alert severity="warning" sx={{ mt: 1 }}>
+              Распределено {exactTotal / 100}; необходимо {total / 100}.
+            </Alert>
+          )}
+        </Box>
+      )}
       <TextField label="Дата" type="date" InputLabelProps={{ shrink: true }} value={form.spent_on} onChange={updateField("spent_on")} />
       <TextField label="Категория" value={form.category} onChange={updateField("category")} />
       <TextField label="Комментарий" multiline minRows={2} value={form.comment} onChange={updateField("comment")} />
     </FormDialog>
+  );
+}
+
+function createAllocations(members, expense) {
+  const expenseShares = new Map((expense?.shares || []).map((share) => [share.user_id, share]));
+
+  return Object.fromEntries(
+    members.map((member) => {
+      const share = expenseShares.get(member.user_id);
+      return [
+        member.user_id,
+        {
+          units: share?.units || 1,
+          amount: share ? (share.amount_cents / 100).toFixed(2) : "",
+        },
+      ];
+    }),
   );
 }

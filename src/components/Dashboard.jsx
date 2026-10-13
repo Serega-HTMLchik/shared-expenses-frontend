@@ -1,5 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
-import { Add, Delete, Edit, Group, Logout, Paid, PersonAdd, ReceiptLong, Refresh, Send } from "@mui/icons-material";
+import {
+  Add,
+  Delete,
+  Edit,
+  Group,
+  Logout,
+  Paid,
+  PersonAdd,
+  ReceiptLong,
+  Refresh,
+  Send,
+} from "@mui/icons-material";
 import {
   Alert,
   AppBar,
@@ -63,16 +74,24 @@ export default function Dashboard({ session, logout }) {
           `${member.user.name} (${member.user.email})`,
         ]),
       );
-      const balanceData = await api(`/groups/${item.id}/balances`, { token: session.token });
+      const balanceData = await api(`/groups/${item.id}/balances`, {
+        token: session.token,
+      });
 
-      balanceData.suggested_transfers = balanceData.suggested_transfers.map((transfer) => ({
-        ...transfer,
-        from_user_id: participants.get(transfer.from_user_id) || transfer.from_user_id,
-        to_user_id: participants.get(transfer.to_user_id) || transfer.to_user_id,
-      }));
+      balanceData.suggested_transfers = balanceData.suggested_transfers.map(
+        (transfer) => ({
+          ...transfer,
+          from_user_id:
+            participants.get(transfer.from_user_id) || transfer.from_user_id,
+          to_user_id:
+            participants.get(transfer.to_user_id) || transfer.to_user_id,
+        }),
+      );
 
       setGroup(detail);
-      setExpenses(await api(`/groups/${item.id}/expenses`, { token: session.token }));
+      setExpenses(
+        await api(`/groups/${item.id}/expenses`, { token: session.token }),
+      );
       setBalances(balanceData);
     } catch (requestError) {
       setError(requestError.message);
@@ -110,9 +129,17 @@ export default function Dashboard({ session, logout }) {
     <>
       <DashboardHeader user={session.user} logout={logout} />
       <Container maxWidth="xl" sx={{ py: 3 }}>
-        <DashboardActions loadGroups={loadGroups} loadAllBalances={loadAllBalances} openGroupDialog={() => setDialog("group")} />
+        <DashboardActions
+          loadGroups={loadGroups}
+          loadAllBalances={loadAllBalances}
+          openGroupDialog={() => setDialog("group")}
+        />
         {allBalances && (
-          <Alert severity="info" sx={{ mb: 2 }} onClose={() => setAllBalances(null)}>
+          <Alert
+            severity="info"
+            sx={{ mb: 2 }}
+            onClose={() => setAllBalances(null)}
+          >
             Групп с балансами: {allBalances.length}
           </Alert>
         )}
@@ -149,7 +176,16 @@ export default function Dashboard({ session, logout }) {
           </Grid>
         </Grid>
       </Container>
-      <Fab color="secondary" sx={{ display: { md: "none" }, position: "fixed", right: 20, bottom: 20 }} onClick={() => setDialog("group")}>
+      <Fab
+        color="secondary"
+        sx={{
+          display: { md: "none" },
+          position: "fixed",
+          right: 20,
+          bottom: 20,
+        }}
+        onClick={() => setDialog("group")}
+      >
         <Add />
       </Fab>
       <GroupDialog
@@ -161,7 +197,12 @@ export default function Dashboard({ session, logout }) {
           openGroup(item);
         }}
       />
-      <InviteDialog group={group} token={session.token} open={dialog === "invite"} onClose={() => setDialog("")} />
+      <InviteDialog
+        group={group}
+        token={session.token}
+        open={dialog === "invite"}
+        onClose={() => setDialog("")}
+      />
       <ExpenseDialog
         group={group}
         members={group?.members || []}
@@ -171,7 +212,12 @@ export default function Dashboard({ session, logout }) {
         onClose={() => setDialog("")}
         done={refresh}
       />
-      <ExpenseDetailsDialog expense={viewing} currency={group?.currency} open={Boolean(viewing)} onClose={() => setViewing(null)} />
+      <ExpenseDetailsDialog
+        expense={viewing}
+        currency={group?.currency}
+        open={Boolean(viewing)}
+        onClose={() => setViewing(null)}
+      />
     </>
   );
 }
@@ -180,7 +226,12 @@ function DashboardHeader({ user, logout }) {
   return (
     <AppBar color="inherit" position="sticky" elevation={0}>
       <Toolbar>
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ flexGrow: 1 }}>
+        <Stack
+          direction="row"
+          spacing={1}
+          alignItems="center"
+          sx={{ flexGrow: 1 }}
+        >
           <Avatar className="mini-brand">
             <Paid />
           </Avatar>
@@ -197,10 +248,20 @@ function DashboardHeader({ user, logout }) {
 
 function DashboardActions({ loadGroups, loadAllBalances, openGroupDialog }) {
   return (
-    <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" sx={{ mb: 3 }}>
+    <Stack
+      direction={{ xs: "column", md: "row" }}
+      justifyContent="space-between"
+      spacing={4}
+      sx={{
+        mb: 3,
+        alignItems: "center",
+      }}
+    >
       <Box>
         <Typography variant="h4">Совместные расходы</Typography>
-        <Typography color="text.secondary">Группы, расходы и расчёты</Typography>
+        <Typography color="text.secondary">
+          Группы, расходы и расчёты
+        </Typography>
       </Box>
       <Stack direction="row" spacing={1}>
         <Button variant="outlined" onClick={loadAllBalances}>
@@ -209,7 +270,11 @@ function DashboardActions({ loadGroups, loadAllBalances, openGroupDialog }) {
         <Button variant="outlined" startIcon={<Refresh />} onClick={loadGroups}>
           Обновить
         </Button>
-        <Button variant="contained" startIcon={<Add />} onClick={openGroupDialog}>
+        <Button
+          variant="contained"
+          startIcon={<Add />}
+          onClick={openGroupDialog}
+        >
           Группа
         </Button>
       </Stack>
@@ -230,7 +295,12 @@ function GroupList({ groups, group, onOpen }) {
             key={item.id}
             className={`group-item ${group?.id === item.id ? "active" : ""}`}
             onClick={() => onOpen(item)}
-            secondaryAction={<Chip size="small" label={item.closed_at ? "Закрыта" : item.currency} />}
+            secondaryAction={
+              <Chip
+                size="small"
+                label={item.closed_at ? "Закрыта" : item.currency}
+              />
+            }
           >
             <ListItemAvatar>
               <Avatar>
@@ -273,7 +343,11 @@ function GroupDetails({
         </Box>
       ) : (
         <>
-          <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" spacing={1}>
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            justifyContent="space-between"
+            spacing={1}
+          >
             <Box>
               <Typography variant="h5">{group.name}</Typography>
               <Typography color="text.secondary">
@@ -286,18 +360,37 @@ function GroupDetails({
                   <PersonAdd />
                 </IconButton>
               </Tooltip>
-              <Button color={group.closed_at ? "primary" : "secondary"} variant="outlined" onClick={onCloseOrReopen}>
+              <Button
+                color={group.closed_at ? "primary" : "secondary"}
+                variant="outlined"
+                onClick={onCloseOrReopen}
+              >
                 {group.closed_at ? "Открыть" : "Закрыть"}
               </Button>
             </Stack>
           </Stack>
-          <Tabs value={tab} onChange={(_, value) => onTabChange(value)} sx={{ mt: 2, mb: 2 }}>
+          <Tabs
+            value={tab}
+            onChange={(_, value) => onTabChange(value)}
+            sx={{ mt: 2, mb: 2 }}
+          >
             <Tab label="Расходы" />
             <Tab label="Балансы" />
             <Tab label="Участники" />
           </Tabs>
-          {tab === 0 && <ExpensesTab group={group} expenses={expenses} onCreate={onCreateExpense} onEdit={onEditExpense} onDelete={onDeleteExpense} onView={onViewExpense} />}
-          {tab === 1 && <BalancesTab balances={balances} currency={group.currency} />}
+          {tab === 0 && (
+            <ExpensesTab
+              group={group}
+              expenses={expenses}
+              onCreate={onCreateExpense}
+              onEdit={onEditExpense}
+              onDelete={onDeleteExpense}
+              onView={onViewExpense}
+            />
+          )}
+          {tab === 1 && (
+            <BalancesTab balances={balances} currency={group.currency} />
+          )}
           {tab === 2 && <MembersTab members={group.members} />}
         </>
       )}
@@ -308,7 +401,13 @@ function GroupDetails({
 function ExpensesTab({ group, expenses, onCreate, onEdit, onDelete, onView }) {
   return (
     <>
-      <Button disabled={Boolean(group.closed_at)} variant="contained" size="small" startIcon={<Add />} onClick={onCreate}>
+      <Button
+        disabled={Boolean(group.closed_at)}
+        variant="contained"
+        size="small"
+        startIcon={<Add />}
+        onClick={onCreate}
+      >
         Расход
       </Button>
       <List>
@@ -320,10 +419,21 @@ function ExpensesTab({ group, expenses, onCreate, onEdit, onDelete, onView }) {
             onClick={() => onView(item)}
             secondaryAction={
               <Stack direction="row">
-                <IconButton onClick={(event) => { event.stopPropagation(); onEdit(item); }}>
+                <IconButton
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onEdit(item);
+                  }}
+                >
                   <Edit />
                 </IconButton>
-                <IconButton color="error" onClick={(event) => { event.stopPropagation(); onDelete(item.id); }}>
+                <IconButton
+                  color="error"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onDelete(item.id);
+                  }}
+                >
                   <Delete />
                 </IconButton>
               </Stack>
@@ -334,7 +444,10 @@ function ExpensesTab({ group, expenses, onCreate, onEdit, onDelete, onView }) {
                 <ReceiptLong />
               </Avatar>
             </ListItemAvatar>
-            <ListItemText primary={item.category || "Расход"} secondary={`${item.payer?.name || "Участник"} · ${item.spent_on}`} />
+            <ListItemText
+              primary={item.category || "Расход"}
+              secondary={`${item.payer?.name || "Участник"} · ${item.spent_on}`}
+            />
             <Typography fontWeight={800} sx={{ flexShrink: 0, mr: 1 }}>
               {money(item.amount_cents, group.currency)}
             </Typography>
@@ -358,15 +471,20 @@ function BalancesTab({ balances, currency }) {
       <Card variant="outlined">
         <CardContent>
           <Typography color="text.secondary">Рекомендуемые переводы</Typography>
-          <Typography variant="h5">{balances.suggested_transfers?.length || 0}</Typography>
+          <Typography variant="h5">
+            {balances.suggested_transfers?.length || 0}
+          </Typography>
         </CardContent>
       </Card>
       {balances.suggested_transfers?.map((item, index) => (
         <Alert key={index} icon={<Send />}>
-          {item.from_user_id} → {item.to_user_id}: {money(item.amount_cents, currency)}
+          {item.from_user_id} → {item.to_user_id}:{" "}
+          {money(item.amount_cents, currency)}
         </Alert>
       )) || null}
-      {!balances.suggested_transfers?.length && <Alert severity="success">Все рассчитались.</Alert>}
+      {!balances.suggested_transfers?.length && (
+        <Alert severity="success">Все рассчитались.</Alert>
+      )}
     </Stack>
   );
 }
@@ -379,7 +497,10 @@ function MembersTab({ members }) {
           <ListItemAvatar>
             <Avatar>{(item.user?.name || "?")[0]}</Avatar>
           </ListItemAvatar>
-          <ListItemText primary={item.user?.name} secondary={item.user?.email} />
+          <ListItemText
+            primary={item.user?.name}
+            secondary={item.user?.email}
+          />
         </ListItem>
       ))}
     </List>
