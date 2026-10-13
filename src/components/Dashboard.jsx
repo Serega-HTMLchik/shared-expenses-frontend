@@ -41,6 +41,7 @@ import {
 } from "@mui/material";
 import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "../services/api";
+import { subscribeToChanges } from "../services/realtime";
 import { formatDate, money } from "../utils/formatters";
 import AcceptInvite from "./dialogs/AcceptInvite";
 import ExpenseDetailsDialog from "./dialogs/ExpenseDetailsDialog";
@@ -77,7 +78,7 @@ export default function Dashboard({ session, logout }) {
     }
   }, [session.token]);
 
-  const openGroup = async (item) => {
+  const openGroup = useCallback(async (item, updateUrl = true) => {
     try {
       const detail = await api(`/groups/${item.id}`, { token: session.token });
       const balanceData = await api(`/groups/${item.id}/balances`, {
@@ -90,11 +91,13 @@ export default function Dashboard({ session, logout }) {
       );
       setBalances(balanceData);
       setSettlements(await api(`/groups/${item.id}/settlements`, { token: session.token }));
-      navigate(`/groups/${item.id}`);
+      if (updateUrl) {
+        navigate(`/groups/${item.id}`);
+      }
     } catch (requestError) {
       setError(requestError.message);
     }
-  };
+  }, [navigate, session.token]);
 
   useEffect(() => {
     queueMicrotask(loadGroups);
@@ -103,7 +106,13 @@ export default function Dashboard({ session, logout }) {
   const loadNotifications = useCallback(async () => setNotifications(await api("/notifications", { token: session.token })), [session.token]);
   useEffect(() => { queueMicrotask(loadNotifications); }, [loadNotifications]);
 
-  const refresh = () => group && openGroup(group);
+  const refresh = useCallback(() => {
+    if (group) {
+      return openGroup(group, false);
+    }
+
+    return Promise.resolve();
+  }, [group, openGroup]);
 
   const closeOrReopen = async () => {
     await api(`/groups/${group.id}/${group.closed_at ? "reopen" : "close"}`, {
@@ -124,14 +133,40 @@ export default function Dashboard({ session, logout }) {
     refresh();
   };
 
-  const loadAllBalances = async () => {
+  const loadAllBalances = useCallback(async () => {
     const [debts, history] = await Promise.all([
       api("/debts", { token: session.token }),
       api("/settlements", { token: session.token }),
     ]);
     setAllBalances(debts);
     setAllSettlements(history);
-  };
+  }, [session.token]);
+
+  useEffect(() => subscribeToChanges({
+    token: session.token,
+    userId: session.user.id,
+    onChange: () => window.dispatchEvent(new Event("shared-expenses:changed")),
+  }), [session.token, session.user.id]);
+
+  useEffect(() => {
+    const refreshFromServer = async () => {
+      await Promise.all([loadGroups(), loadNotifications()]);
+
+      if (group) {
+        await openGroup(group, false);
+      }
+
+      if (section === "balances") {
+        await loadAllBalances();
+      }
+    };
+
+    window.addEventListener("shared-expenses:changed", refreshFromServer);
+
+    return () => {
+      window.removeEventListener("shared-expenses:changed", refreshFromServer);
+    };
+  }, [group, loadAllBalances, loadGroups, loadNotifications, openGroup, section]);
 
   return (
     <>
