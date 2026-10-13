@@ -39,6 +39,7 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
+import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "../services/api";
 import { formatDate, money } from "../utils/formatters";
 import AcceptInvite from "./dialogs/AcceptInvite";
@@ -56,7 +57,6 @@ export default function Dashboard({ session, logout }) {
   const [balances, setBalances] = useState(null);
   const [allBalances, setAllBalances] = useState(null);
   const [allSettlements, setAllSettlements] = useState([]);
-  const [section, setSection] = useState("groups");
   const [settlements, setSettlements] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [settlementTransfer, setSettlementTransfer] = useState(null);
@@ -65,6 +65,9 @@ export default function Dashboard({ session, logout }) {
   const [dialog, setDialog] = useState("");
   const [editing, setEditing] = useState(null);
   const [viewing, setViewing] = useState(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const section = location.pathname === "/balances" ? "balances" : "groups";
 
   const loadGroups = useCallback(async () => {
     try {
@@ -87,6 +90,7 @@ export default function Dashboard({ session, logout }) {
       );
       setBalances(balanceData);
       setSettlements(await api(`/groups/${item.id}/settlements`, { token: session.token }));
+      navigate(`/groups/${item.id}`);
     } catch (requestError) {
       setError(requestError.message);
     }
@@ -131,11 +135,11 @@ export default function Dashboard({ session, logout }) {
 
   return (
     <>
-      <DashboardHeader user={session.user} logout={logout} unread={notifications.filter((item) => !item.read_at).length} balanceCount={allBalances?.length || 0} onBalances={async () => { await loadAllBalances(); setSection("balances"); }} onNotifications={() => setDialog("notifications")} />
+      <DashboardHeader user={session.user} logout={logout} unread={notifications.filter((item) => !item.read_at).length} balanceCount={allBalances?.length || 0} onBalances={async () => { await loadAllBalances(); navigate("/balances"); }} onNotifications={() => setDialog("notifications")} />
       <Container maxWidth="xl" sx={{ py: 3 }}>
-        {section === "balances" ? <BalancesOverview debts={allBalances || []} settlements={allSettlements} onBack={() => setSection("groups")} /> : <><DashboardActions
+        {section === "balances" ? <BalancesOverview debts={allBalances || []} settlements={allSettlements} onBack={() => navigate("/")} /> : <><DashboardActions
           loadGroups={loadGroups}
-          loadAllBalances={loadAllBalances}
+          loadAllBalances={async () => { await loadAllBalances(); navigate("/balances"); }}
           openGroupDialog={() => setDialog("group")}
         />
         {allBalances && (

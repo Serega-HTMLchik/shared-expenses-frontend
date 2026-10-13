@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { CssBaseline, ThemeProvider } from "@mui/material";
+import { Navigate, Route, Routes } from "react-router-dom";
 import "./App.css";
 import Auth from "./components/Auth";
 import Dashboard from "./components/Dashboard";
@@ -34,7 +35,19 @@ export default function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      {session ? <Dashboard session={session} logout={logout} /> : <Auth onAuth={auth} />}
+      {session ? (
+        <Routes>
+          <Route path="/" element={<Dashboard session={session} logout={logout} />} />
+          <Route path="/balances" element={<Dashboard session={session} logout={logout} />} />
+          <Route path="/groups/:groupId" element={<Dashboard session={session} logout={logout} />} />
+          <Route path="/invitations/:token" element={<Dashboard session={session} logout={logout} />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      ) : (
+        <Routes>
+          <Route path="*" element={<Auth onAuth={auth} />} />
+        </Routes>
+      )}
     </ThemeProvider>
   );
 }
