@@ -5,6 +5,7 @@ import {
   Edit,
   Group,
   Logout,
+  Notifications,
   Paid,
   PersonAdd,
   ReceiptLong,
@@ -15,6 +16,7 @@ import {
   Alert,
   AppBar,
   Avatar,
+  Badge,
   Box,
   Button,
   Card,
@@ -44,6 +46,7 @@ import ExpenseDetailsDialog from "./dialogs/ExpenseDetailsDialog";
 import ExpenseDialog from "./dialogs/ExpenseDialog";
 import GroupDialog from "./dialogs/GroupDialog";
 import InviteDialog from "./dialogs/InviteDialog";
+import NotificationsDialog from "./dialogs/NotificationsDialog";
 
 export default function Dashboard({ session, logout }) {
   const [groups, setGroups] = useState([]);
@@ -51,6 +54,8 @@ export default function Dashboard({ session, logout }) {
   const [expenses, setExpenses] = useState([]);
   const [balances, setBalances] = useState(null);
   const [allBalances, setAllBalances] = useState(null);
+  const [settlements, setSettlements] = useState([]);
+  const [notifications, setNotifications] = useState([]);
   const [tab, setTab] = useState(0);
   const [error, setError] = useState("");
   const [dialog, setDialog] = useState("");
@@ -68,31 +73,16 @@ export default function Dashboard({ session, logout }) {
   const openGroup = async (item) => {
     try {
       const detail = await api(`/groups/${item.id}`, { token: session.token });
-      const participants = new Map(
-        detail.members.map((member) => [
-          member.user_id,
-          `${member.user.name} (${member.user.email})`,
-        ]),
-      );
       const balanceData = await api(`/groups/${item.id}/balances`, {
         token: session.token,
       });
-
-      balanceData.suggested_transfers = balanceData.suggested_transfers.map(
-        (transfer) => ({
-          ...transfer,
-          from_user_id:
-            participants.get(transfer.from_user_id) || transfer.from_user_id,
-          to_user_id:
-            participants.get(transfer.to_user_id) || transfer.to_user_id,
-        }),
-      );
 
       setGroup(detail);
       setExpenses(
         await api(`/groups/${item.id}/expenses`, { token: session.token }),
       );
       setBalances(balanceData);
+      setSettlements(await api(`/groups/${item.id}/settlements`, { token: session.token }));
     } catch (requestError) {
       setError(requestError.message);
     }
@@ -101,6 +91,9 @@ export default function Dashboard({ session, logout }) {
   useEffect(() => {
     queueMicrotask(loadGroups);
   }, [loadGroups]);
+
+  const loadNotifications = useCallback(async () => setNotifications(await api("/notifications", { token: session.token })), [session.token]);
+  useEffect(() => { queueMicrotask(loadNotifications); }, [loadNotifications]);
 
   const refresh = () => group && openGroup(group);
 
@@ -124,12 +117,12 @@ export default function Dashboard({ session, logout }) {
   };
 
   const loadAllBalances = async () => {
-    setAllBalances(await api("/balances", { token: session.token }));
+    setAllBalances(await api("/debts", { token: session.token }));
   };
 
   return (
     <>
-      <DashboardHeader user={session.user} logout={logout} />
+      <DashboardHeader user={session.user} logout={logout} unread={notifications.filter((item) => !item.read_at).length} onNotifications={() => setDialog("notifications")} />
       <Container maxWidth="xl" sx={{ py: 3 }}>
         <DashboardActions
           loadGroups={loadGroups}
@@ -142,7 +135,7 @@ export default function Dashboard({ session, logout }) {
             sx={{ mb: 2 }}
             onClose={() => setAllBalances(null)}
           >
-            Групп с балансами: {allBalances.length}
+            {allBalances.length === 0 ? "У вас нет непогашенных задолженностей." : allBalances.map((item, index) => <Box key={index}>{item.group_name}: {money(item.amount_cents, item.currency)}</Box>)}
           </Alert>
         )}
         <AcceptInvite token={session.token} accepted={loadGroups} />
@@ -160,6 +153,10 @@ export default function Dashboard({ session, logout }) {
               group={group}
               expenses={expenses}
               balances={balances}
+              settlements={settlements}
+              token={session.token}
+              currentUserId={session.user.id}
+              refresh={refresh}
               tab={tab}
               onTabChange={setTab}
               onInvite={() => setDialog("invite")}
@@ -222,11 +219,12 @@ export default function Dashboard({ session, logout }) {
         open={Boolean(viewing)}
         onClose={() => setViewing(null)}
       />
+      {dialog === "notifications" && <NotificationsDialog notifications={notifications} onClose={() => setDialog("")} onReadAll={async () => { await api("/notifications/read-all", { token: session.token, method: "POST" }); await loadNotifications(); }} />}
     </>
   );
 }
 
-function DashboardHeader({ user, logout }) {
+function DashboardHeader({ user, logout, unread, onNotifications }) {
   return (
     <AppBar color="inherit" position="sticky" elevation={0}>
       <Toolbar>
@@ -241,6 +239,7 @@ function DashboardHeader({ user, logout }) {
           <Typography fontWeight={800}>Делим вместе</Typography>
         </Stack>
         <Typography sx={{ mr: 1 }}>{user.name}</Typography>
+        <IconButton onClick={onNotifications}><Badge badgeContent={unread} color="secondary"><Notifications /></Badge></IconButton>
         <IconButton onClick={logout}>
           <Logout />
         </IconButton>
@@ -328,6 +327,10 @@ function GroupDetails({
   group,
   expenses,
   balances,
+  settlements,
+  token,
+  currentUserId,
+  refresh,
   tab,
   onTabChange,
   onInvite,
@@ -392,7 +395,7 @@ function GroupDetails({
             />
           )}
           {tab === 1 && (
-            <BalancesTab balances={balances} currency={group.currency} />
+            <BalancesTab group={group} balances={balances} currency={group.currency} members={group.members} settlements={settlements} token={token} currentUserId={currentUserId} refresh={refresh} />
           )}
           {tab === 2 && <MembersTab members={group.members} />}
         </>
@@ -468,8 +471,23 @@ function ExpensesTab({ group, expenses, onCreate, onEdit, onDelete, onView }) {
   );
 }
 
-function BalancesTab({ balances, currency }) {
+function BalancesTab({ group, balances, currency, members, settlements, token, currentUserId, refresh }) {
+  const [amounts, setAmounts] = useState({});
   if (!balances) return <CircularProgress />;
+
+  const person = (id) => {
+    const user = members.find((member) => member.user_id === id)?.user;
+    return user ? `${user.name} (${user.email})` : `Участник #${id}`;
+  };
+  const settle = async (transfer) => {
+    const amount = Math.round(Number(amounts[`${transfer.from_user_id}-${transfer.to_user_id}`] || transfer.amount_cents / 100) * 100);
+    await api(`/groups/${group.id}/settlements`, { token, method: "POST", body: { to_user_id: transfer.to_user_id, amount_cents: amount } });
+    refresh();
+  };
+  const confirm = async (settlement) => {
+    await api(`/settlements/${settlement.id}/confirm`, { token, method: "POST" });
+    refresh();
+  };
 
   return (
     <Stack spacing={2}>
@@ -481,12 +499,11 @@ function BalancesTab({ balances, currency }) {
           </Typography>
         </CardContent>
       </Card>
-      {balances.suggested_transfers?.map((item, index) => (
-        <Alert key={index} icon={<Send />}>
-          {item.from_user_id} → {item.to_user_id}:{" "}
-          {money(item.amount_cents, currency)}
-        </Alert>
-      )) || null}
+      {balances.suggested_transfers?.map((item, index) => {
+        const key = `${item.from_user_id}-${item.to_user_id}`;
+        return <Alert key={index} icon={<Send />} action={item.from_user_id === currentUserId ? <Stack direction="row" spacing={1}><input aria-label="Сумма погашения" type="number" min="0.01" max={item.amount_cents / 100} step="0.01" placeholder={(item.amount_cents / 100).toString()} value={amounts[key] || ""} onChange={(event) => setAmounts({ ...amounts, [key]: event.target.value })} style={{ width: 82 }} /><Button size="small" onClick={() => settle(item)}>Погасить</Button></Stack> : null}>{person(item.from_user_id)} → {person(item.to_user_id)}: {money(item.amount_cents, currency)}</Alert>;
+      }) || null}
+      {settlements.filter((item) => item.status === "pending").map((item) => <Alert key={`pending-${item.id}`} severity="warning" action={item.to_user_id === currentUserId ? <Button size="small" onClick={() => confirm(item)}>Подтвердить</Button> : null}>Ожидает подтверждения: {item.from_user?.name} → {item.to_user?.name}, {money(item.amount_cents, currency)}</Alert>)}
       {!balances.suggested_transfers?.length && (
         <Alert severity="success">Все рассчитались.</Alert>
       )}
