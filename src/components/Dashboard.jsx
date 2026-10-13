@@ -69,6 +69,7 @@ export default function Dashboard({ session, logout }) {
   const [balances, setBalances] = useState(null);
   const [groupBalanceData, setGroupBalanceData] = useState([]);
   const [allBalances, setAllBalances] = useState(null);
+  const [receivables, setReceivables] = useState([]);
   const [allSettlements, setAllSettlements] = useState([]);
   const [settlements, setSettlements] = useState([]);
   const [notifications, setNotifications] = useState([]);
@@ -165,11 +166,13 @@ export default function Dashboard({ session, logout }) {
   };
 
   const loadAllBalances = useCallback(async () => {
-    const [debts, history] = await Promise.all([
+    const [debts, incomingDebts, history] = await Promise.all([
       api("/debts", { token: session.token }),
+      api("/receivables", { token: session.token }),
       api("/settlements", { token: session.token }),
     ]);
     setAllBalances(debts);
+    setReceivables(incomingDebts);
     setAllSettlements(history);
   }, [session.token]);
 
@@ -224,6 +227,7 @@ export default function Dashboard({ session, logout }) {
         {section === "balances" ? (
           <BalancesOverview
             debts={allBalances || []}
+            receivables={receivables}
             settlements={allSettlements}
             onBack={() => navigate("/")}
           />
@@ -427,7 +431,7 @@ function DashboardActions({ loadGroups, loadAllBalances, openGroupDialog }) {
   );
 }
 
-function BalancesOverview({ debts, settlements, onBack }) {
+function BalancesOverview({ debts, receivables, settlements, onBack }) {
   return (
     <Stack spacing={3}>
       <Stack
@@ -442,7 +446,7 @@ function BalancesOverview({ debts, settlements, onBack }) {
         </Box>
         <Button onClick={onBack}>К группам</Button>
       </Stack>
-      <Paper className="panel" elevation={0} sx={{ p: 2 }}>
+      <Paper className="panel panel-sm" elevation={0} sx={{ p: 2 }}>
         <Typography variant="h6" sx={{ mb: 1 }}>
           Текущие задолженности
         </Typography>
@@ -465,7 +469,28 @@ function BalancesOverview({ debts, settlements, onBack }) {
           )}
         </List>
       </Paper>
-      <Paper className="panel" elevation={0} sx={{ p: 2 }}>
+      <Paper className="panel panel-sm" elevation={0} sx={{ p: 2 }}>
+        <Typography variant="h6" sx={{ mb: 1 }}>
+          Мне должны
+        </Typography>
+        <List>
+          {receivables.map((item, index) => (
+            <ListItem key={`${item.currency}-${index}`} divider>
+              <ListItemText
+                primary={`${item.group_name} · ${item.currency}`}
+                secondary={`${item.from_user?.name || "Участник"} (${item.from_user?.email || ""}) → ${item.to_user?.name || "Участник"}`}
+              />
+              <Typography fontWeight={800}>
+                {money(item.amount_cents, item.currency)}
+              </Typography>
+            </ListItem>
+          ))}
+          {receivables.length === 0 && (
+            <Typography color="text.secondary">Никто вам не должен.</Typography>
+          )}
+        </List>
+      </Paper>
+      <Paper className="panel panel-sm" elevation={0} sx={{ p: 2 }}>
         <Typography variant="h6" sx={{ mb: 1 }}>
           Все транзакции
         </Typography>
@@ -524,7 +549,9 @@ function GroupList({ groups, group, balanceData, currentUserId, onOpen }) {
       return left.name.localeCompare(right.name, "ru");
     }
 
-    const difference = new Date(right.created_at).getTime() - new Date(left.created_at).getTime();
+    const difference =
+      new Date(right.created_at).getTime() -
+      new Date(left.created_at).getTime();
 
     return sort === "oldest" ? -difference : difference;
   });
@@ -773,7 +800,9 @@ function ExpensesTab({ group, expenses, onCreate, onEdit, onDelete, onView }) {
 
       return months;
     }, {}),
-  ).sort((left, right) => String(right[0].spent_on).localeCompare(String(left[0].spent_on)));
+  ).sort((left, right) =>
+    String(right[0].spent_on).localeCompare(String(left[0].spent_on)),
+  );
 
   return (
     <>
