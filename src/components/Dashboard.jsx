@@ -452,13 +452,15 @@ function GroupDetails({
                   <PersonAdd />
                 </IconButton>
               </Tooltip>
-              <Button
-                color={group.closed_at ? "primary" : "secondary"}
-                variant="outlined"
-                onClick={onCloseOrReopen}
-              >
-                {group.closed_at ? "Открыть" : "Закрыть"}
-              </Button>
+              {group.owner_id === currentUserId && (
+                <Button
+                  color={group.closed_at ? "primary" : "secondary"}
+                  variant="outlined"
+                  onClick={onCloseOrReopen}
+                >
+                  {group.closed_at ? "Открыть" : "Закрыть"}
+                </Button>
+              )}
             </Stack>
           </Stack>
           <Tabs
