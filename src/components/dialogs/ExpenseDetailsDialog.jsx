@@ -39,9 +39,8 @@ export default function ExpenseDetailsDialog({
         <Stack spacing={2.5} sx={{ pt: 1 }}>
           <Stack
             direction="row"
-            justifyContent="space-between"
             spacing={2}
-            sx={{ alignItems: "center" }}
+            sx={{ alignItems: "center", justifyContent: "space-between" }}
           >
             <Box>
               <Typography variant="overline" color="text.secondary">
@@ -58,9 +57,8 @@ export default function ExpenseDetailsDialog({
 
           <Stack
             direction="row"
-            justifyContent="space-between"
             spacing={2}
-            alignItems="flex-start"
+            sx={{ alignItems: "flex-start", justifyContent: "space-between" }}
           >
             <Box>
               <Typography variant="h6">
@@ -159,7 +157,7 @@ function DetailSection({ title, children }) {
 
 function DetailRow({ label, value, emphasized = false }) {
   return (
-    <Stack direction="row" justifyContent="space-between" spacing={2}>
+    <Stack direction="row" spacing={2} sx={{ justifyContent: "space-between" }}>
       <Typography color="text.secondary">{label}</Typography>
       <Typography textAlign="right" fontWeight={emphasized ? 800 : undefined}>
         {value}

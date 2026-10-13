@@ -229,8 +229,7 @@ function DashboardHeader({ user, logout }) {
         <Stack
           direction="row"
           spacing={1}
-          alignItems="center"
-          sx={{ flexGrow: 1 }}
+          sx={{ flexGrow: 1, alignItems: "center" }}
         >
           <Avatar className="mini-brand">
             <Paid />
@@ -250,11 +249,11 @@ function DashboardActions({ loadGroups, loadAllBalances, openGroupDialog }) {
   return (
     <Stack
       direction={{ xs: "column", md: "row" }}
-      justifyContent="space-between"
       spacing={4}
       sx={{
         mb: 3,
         alignItems: "center",
+        justifyContent: "space-between",
       }}
     >
       <Box>
@@ -285,7 +284,7 @@ function DashboardActions({ loadGroups, loadAllBalances, openGroupDialog }) {
 function GroupList({ groups, group, onOpen }) {
   return (
     <Paper className="panel" elevation={0}>
-      <Stack direction="row" justifyContent="space-between" sx={{ p: 2 }}>
+      <Stack direction="row" sx={{ p: 2, justifyContent: "space-between" }}>
         <Typography variant="h6">Мои группы</Typography>
         <Chip label={groups.length} size="small" />
       </Stack>
@@ -345,8 +344,8 @@ function GroupDetails({
         <>
           <Stack
             direction={{ xs: "column", sm: "row" }}
-            justifyContent="space-between"
             spacing={1}
+            sx={{ justifyContent: "space-between" }}
           >
             <Box>
               <Typography variant="h5">{group.name}</Typography>

@@ -110,7 +110,7 @@ export default function ExpenseDialog({ group, members, expense, token, open, on
           </Typography>
           <Stack spacing={1} divider={<Divider flexItem />}>
             {members.map((member) => (
-              <Stack key={member.user_id} direction="row" spacing={1} alignItems="center">
+              <Stack key={member.user_id} direction="row" spacing={1} sx={{ alignItems: "center" }}>
                 <Typography sx={{ flexGrow: 1 }}>
                   {member.user?.name || member.user?.email}
                 </Typography>
