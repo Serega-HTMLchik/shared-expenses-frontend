@@ -47,6 +47,7 @@ import ExpenseDialog from "./dialogs/ExpenseDialog";
 import GroupDialog from "./dialogs/GroupDialog";
 import InviteDialog from "./dialogs/InviteDialog";
 import NotificationsDialog from "./dialogs/NotificationsDialog";
+import SettlementDialog from "./dialogs/SettlementDialog";
 
 export default function Dashboard({ session, logout }) {
   const [groups, setGroups] = useState([]);
@@ -56,6 +57,7 @@ export default function Dashboard({ session, logout }) {
   const [allBalances, setAllBalances] = useState(null);
   const [settlements, setSettlements] = useState([]);
   const [notifications, setNotifications] = useState([]);
+  const [settlementTransfer, setSettlementTransfer] = useState(null);
   const [tab, setTab] = useState(0);
   const [error, setError] = useState("");
   const [dialog, setDialog] = useState("");
@@ -171,6 +173,7 @@ export default function Dashboard({ session, logout }) {
               }}
               onDeleteExpense={deleteExpense}
               onViewExpense={setViewing}
+              onSettle={setSettlementTransfer}
             />
           </Grid>
         </Grid>
@@ -220,6 +223,7 @@ export default function Dashboard({ session, logout }) {
         onClose={() => setViewing(null)}
       />
       {dialog === "notifications" && <NotificationsDialog notifications={notifications} onClose={() => setDialog("")} onReadAll={async () => { await api("/notifications/read-all", { token: session.token, method: "POST" }); await loadNotifications(); }} />}
+      {settlementTransfer && <SettlementDialog group={group} transfer={settlementTransfer} token={session.token} onClose={() => setSettlementTransfer(null)} done={refresh} />}
     </>
   );
 }
@@ -339,6 +343,7 @@ function GroupDetails({
   onEditExpense,
   onDeleteExpense,
   onViewExpense,
+  onSettle,
 }) {
   return (
     <Paper className="panel detail" elevation={0}>
@@ -395,7 +400,7 @@ function GroupDetails({
             />
           )}
           {tab === 1 && (
-            <BalancesTab group={group} balances={balances} currency={group.currency} members={group.members} settlements={settlements} token={token} currentUserId={currentUserId} refresh={refresh} />
+            <BalancesTab group={group} balances={balances} currency={group.currency} members={group.members} settlements={settlements} token={token} currentUserId={currentUserId} refresh={refresh} onSettle={onSettle} />
           )}
           {tab === 2 && <MembersTab members={group.members} />}
         </>
@@ -471,18 +476,12 @@ function ExpensesTab({ group, expenses, onCreate, onEdit, onDelete, onView }) {
   );
 }
 
-function BalancesTab({ group, balances, currency, members, settlements, token, currentUserId, refresh }) {
-  const [amounts, setAmounts] = useState({});
+function BalancesTab({ balances, currency, members, settlements, token, currentUserId, refresh, onSettle }) {
   if (!balances) return <CircularProgress />;
 
   const person = (id) => {
     const user = members.find((member) => member.user_id === id)?.user;
     return user ? `${user.name} (${user.email})` : `Участник #${id}`;
-  };
-  const settle = async (transfer) => {
-    const amount = Math.round(Number(amounts[`${transfer.from_user_id}-${transfer.to_user_id}`] || transfer.amount_cents / 100) * 100);
-    await api(`/groups/${group.id}/settlements`, { token, method: "POST", body: { to_user_id: transfer.to_user_id, amount_cents: amount } });
-    refresh();
   };
   const confirm = async (settlement) => {
     await api(`/settlements/${settlement.id}/confirm`, { token, method: "POST" });
@@ -500,8 +499,7 @@ function BalancesTab({ group, balances, currency, members, settlements, token, c
         </CardContent>
       </Card>
       {balances.suggested_transfers?.map((item, index) => {
-        const key = `${item.from_user_id}-${item.to_user_id}`;
-        return <Alert key={index} icon={<Send />} action={item.from_user_id === currentUserId ? <Stack direction="row" spacing={1}><input aria-label="Сумма погашения" type="number" min="0.01" max={item.amount_cents / 100} step="0.01" placeholder={(item.amount_cents / 100).toString()} value={amounts[key] || ""} onChange={(event) => setAmounts({ ...amounts, [key]: event.target.value })} style={{ width: 82 }} /><Button size="small" onClick={() => settle(item)}>Погасить</Button></Stack> : null}>{person(item.from_user_id)} → {person(item.to_user_id)}: {money(item.amount_cents, currency)}</Alert>;
+        return <Alert key={index} icon={<Send />} action={item.from_user_id === currentUserId ? <Button size="small" onClick={() => onSettle(item)}>Погасить</Button> : null}>{person(item.from_user_id)} → {person(item.to_user_id)}: {money(item.amount_cents, currency)}</Alert>;
       }) || null}
       {settlements.filter((item) => item.status === "pending").map((item) => <Alert key={`pending-${item.id}`} severity="warning" action={item.to_user_id === currentUserId ? <Button size="small" onClick={() => confirm(item)}>Подтвердить</Button> : null}>Ожидает подтверждения: {item.from_user?.name} → {item.to_user?.name}, {money(item.amount_cents, currency)}</Alert>)}
       {!balances.suggested_transfers?.length && (
