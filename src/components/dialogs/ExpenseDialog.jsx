@@ -1,8 +1,19 @@
 import { useState } from "react";
-import { Alert, Box, Button, Divider, MenuItem, Stack, TextField, Typography } from "@mui/material";
+import { Alert, Autocomplete, Box, Button, Divider, MenuItem, Stack, TextField, Typography } from "@mui/material";
 import { api } from "../../services/api";
 import { cents } from "../../utils/formatters";
 import FormDialog from "./FormDialog";
+
+const EXPENSE_CATEGORIES = [
+  "Продукты",
+  "Рестораны",
+  "Транспорт",
+  "Жильё",
+  "Развлечения",
+  "Здоровье",
+  "Покупки",
+  "Другое",
+];
 
 export default function ExpenseDialog({ group, members, expense, token, open, onClose, done }) {
   const [receipt, setReceipt] = useState(null);
@@ -134,7 +145,13 @@ export default function ExpenseDialog({ group, members, expense, token, open, on
         </Box>
       )}
       <TextField label="Дата" type="date" InputLabelProps={{ shrink: true }} value={form.spent_on} onChange={updateField("spent_on")} />
-      <TextField label="Категория" value={form.category} onChange={updateField("category")} />
+      <Autocomplete
+        freeSolo
+        options={EXPENSE_CATEGORIES}
+        inputValue={form.category}
+        onInputChange={(_, value) => setForm({ ...form, category: value })}
+        renderInput={(params) => <TextField {...params} label="Категория" placeholder="Выберите или введите свою" />}
+      />
       <TextField label="Комментарий" multiline minRows={2} value={form.comment} onChange={updateField("comment")} />
     </FormDialog>
   );
