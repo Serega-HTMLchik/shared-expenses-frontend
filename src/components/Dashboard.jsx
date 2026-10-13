@@ -222,7 +222,7 @@ export default function Dashboard({ session, logout }) {
         open={Boolean(viewing)}
         onClose={() => setViewing(null)}
       />
-      {dialog === "notifications" && <NotificationsDialog notifications={notifications} onClose={() => setDialog("")} onReadAll={async () => { await api("/notifications/read-all", { token: session.token, method: "POST" }); await loadNotifications(); }} />}
+      {dialog === "notifications" && <NotificationsDialog notifications={notifications} onClose={() => setDialog("")} onRead={async (notificationId) => { await api(`/notifications/${notificationId}/read`, { token: session.token, method: "POST" }); await loadNotifications(); }} onReadAll={async () => { await api("/notifications/read-all", { token: session.token, method: "POST" }); await loadNotifications(); }} />}
       {settlementTransfer && <SettlementDialog group={group} transfer={settlementTransfer} token={session.token} onClose={() => setSettlementTransfer(null)} done={refresh} />}
     </>
   );
