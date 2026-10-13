@@ -19,6 +19,7 @@ import {
   Badge,
   Box,
   Button,
+  ButtonBase,
   Card,
   CardContent,
   Chip,
@@ -78,33 +79,46 @@ export default function Dashboard({ session, logout }) {
     }
   }, [session.token]);
 
-  const openGroup = useCallback(async (item, updateUrl = true) => {
-    try {
-      const detail = await api(`/groups/${item.id}`, { token: session.token });
-      const balanceData = await api(`/groups/${item.id}/balances`, {
-        token: session.token,
-      });
+  const openGroup = useCallback(
+    async (item, updateUrl = true) => {
+      try {
+        const detail = await api(`/groups/${item.id}`, {
+          token: session.token,
+        });
+        const balanceData = await api(`/groups/${item.id}/balances`, {
+          token: session.token,
+        });
 
-      setGroup(detail);
-      setExpenses(
-        await api(`/groups/${item.id}/expenses`, { token: session.token }),
-      );
-      setBalances(balanceData);
-      setSettlements(await api(`/groups/${item.id}/settlements`, { token: session.token }));
-      if (updateUrl) {
-        navigate(`/groups/${item.id}`);
+        setGroup(detail);
+        setExpenses(
+          await api(`/groups/${item.id}/expenses`, { token: session.token }),
+        );
+        setBalances(balanceData);
+        setSettlements(
+          await api(`/groups/${item.id}/settlements`, { token: session.token }),
+        );
+        if (updateUrl) {
+          navigate(`/groups/${item.id}`);
+        }
+      } catch (requestError) {
+        setError(requestError.message);
       }
-    } catch (requestError) {
-      setError(requestError.message);
-    }
-  }, [navigate, session.token]);
+    },
+    [navigate, session.token],
+  );
 
   useEffect(() => {
     queueMicrotask(loadGroups);
   }, [loadGroups]);
 
-  const loadNotifications = useCallback(async () => setNotifications(await api("/notifications", { token: session.token })), [session.token]);
-  useEffect(() => { queueMicrotask(loadNotifications); }, [loadNotifications]);
+  const loadNotifications = useCallback(
+    async () =>
+      setNotifications(await api("/notifications", { token: session.token })),
+    [session.token],
+  );
+  useEffect(() => {
+    queueMicrotask(loadNotifications);
+  }, [loadNotifications]);
 
   const refresh = useCallback(() => {
     if (group) {
@@ -142,11 +156,16 @@ export default function Dashboard({ session, logout }) {
     setAllSettlements(history);
   }, [session.token]);
 
-  useEffect(() => subscribeToChanges({
-    token: session.token,
-    userId: session.user.id,
-    onChange: () => window.dispatchEvent(new Event("shared-expenses:changed")),
-  }), [session.token, session.user.id]);
+  useEffect(
+    () =>
+      subscribeToChanges({
+        token: session.token,
+        userId: session.user.id,
+        onChange: () =>
+          window.dispatchEvent(new Event("shared-expenses:changed")),
+      }),
+    [session.token, session.user.id],
+  );
 
   useEffect(() => {
     const refreshFromServer = async () => {
@@ -166,63 +185,84 @@ export default function Dashboard({ session, logout }) {
     return () => {
       window.removeEventListener("shared-expenses:changed", refreshFromServer);
     };
-  }, [group, loadAllBalances, loadGroups, loadNotifications, openGroup, section]);
+  }, [
+    group,
+    loadAllBalances,
+    loadGroups,
+    loadNotifications,
+    openGroup,
+    section,
+  ]);
 
   return (
     <>
-      <DashboardHeader user={session.user} logout={logout} unread={notifications.filter((item) => !item.read_at).length} balanceCount={allBalances?.length || 0} onBalances={async () => { await loadAllBalances(); navigate("/balances"); }} onNotifications={() => setDialog("notifications")} />
+      <DashboardHeader
+        user={session.user}
+        logout={logout}
+        unread={notifications.filter((item) => !item.read_at).length}
+        onHome={() => navigate("/")}
+        onNotifications={() => setDialog("notifications")}
+      />
       <Container maxWidth="xl" sx={{ py: 3 }}>
-        {section === "balances" ? <BalancesOverview debts={allBalances || []} settlements={allSettlements} onBack={() => navigate("/")} /> : <><DashboardActions
-          loadGroups={loadGroups}
-          loadAllBalances={async () => { await loadAllBalances(); navigate("/balances"); }}
-          openGroupDialog={() => setDialog("group")}
-        />
-        {allBalances && (
-          <Alert
-            severity="info"
-            sx={{ mb: 2 }}
-            onClose={() => setAllBalances(null)}
-          >
-            {allBalances.length === 0 ? "У вас нет непогашенных задолженностей." : allBalances.map((item, index) => <Box key={index}>{item.group_name}: {money(item.amount_cents, item.currency)}</Box>)}
-          </Alert>
-        )}
-        <AcceptInvite token={session.token} accepted={loadGroups} />
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
-            {error}
-          </Alert>
-        )}
-        <Grid container spacing={3}>
-          <Grid size={{ xs: 12, md: 4 }}>
-            <GroupList groups={groups} group={group} onOpen={openGroup} />
-          </Grid>
-          <Grid size={{ xs: 12, md: 8 }}>
-            <GroupDetails
-              group={group}
-              expenses={expenses}
-              balances={balances}
-              settlements={settlements}
-              token={session.token}
-              currentUserId={session.user.id}
-              refresh={refresh}
-              tab={tab}
-              onTabChange={setTab}
-              onInvite={() => setDialog("invite")}
-              onCloseOrReopen={closeOrReopen}
-              onCreateExpense={() => {
-                setEditing(null);
-                setDialog("expense");
+        {section === "balances" ? (
+          <BalancesOverview
+            debts={allBalances || []}
+            settlements={allSettlements}
+            onBack={() => navigate("/")}
+          />
+        ) : (
+          <>
+            <DashboardActions
+              loadGroups={loadGroups}
+              loadAllBalances={async () => {
+                await loadAllBalances();
+                navigate("/balances");
               }}
-              onEditExpense={(expense) => {
-                setEditing(expense);
-                setDialog("expense");
-              }}
-              onDeleteExpense={deleteExpense}
-              onViewExpense={setViewing}
-              onSettle={setSettlementTransfer}
+              openGroupDialog={() => setDialog("group")}
             />
-          </Grid>
-        </Grid></>}
+            <AcceptInvite token={session.token} accepted={loadGroups} />
+            {error && (
+              <Alert
+                severity="error"
+                sx={{ mb: 2 }}
+                onClose={() => setError("")}
+              >
+                {error}
+              </Alert>
+            )}
+            <Grid container spacing={3}>
+              <Grid size={{ xs: 12, md: 4 }}>
+                <GroupList groups={groups} group={group} onOpen={openGroup} />
+              </Grid>
+              <Grid size={{ xs: 12, md: 8 }}>
+                <GroupDetails
+                  group={group}
+                  expenses={expenses}
+                  balances={balances}
+                  settlements={settlements}
+                  token={session.token}
+                  currentUserId={session.user.id}
+                  refresh={refresh}
+                  tab={tab}
+                  onTabChange={setTab}
+                  onInvite={() => setDialog("invite")}
+                  onCloseOrReopen={closeOrReopen}
+                  onCreateExpense={() => {
+                    setEditing(null);
+                    setDialog("expense");
+                  }}
+                  onEditExpense={(expense) => {
+                    setEditing(expense);
+                    setDialog("expense");
+                  }}
+                  onDeleteExpense={deleteExpense}
+                  onViewExpense={setViewing}
+                  onSettle={setSettlementTransfer}
+                />
+              </Grid>
+            </Grid>
+          </>
+        )}
       </Container>
       <Fab
         color="secondary"
@@ -268,29 +308,61 @@ export default function Dashboard({ session, logout }) {
         open={Boolean(viewing)}
         onClose={() => setViewing(null)}
       />
-      {dialog === "notifications" && <NotificationsDialog notifications={notifications} onClose={() => setDialog("")} onRead={async (notificationId) => { await api(`/notifications/${notificationId}/read`, { token: session.token, method: "POST" }); await loadNotifications(); }} onReadAll={async () => { await api("/notifications/read-all", { token: session.token, method: "POST" }); await loadNotifications(); }} />}
-      {settlementTransfer && <SettlementDialog group={group} transfer={settlementTransfer} token={session.token} onClose={() => setSettlementTransfer(null)} done={refresh} />}
+      {dialog === "notifications" && (
+        <NotificationsDialog
+          notifications={notifications}
+          onClose={() => setDialog("")}
+          onRead={async (notificationId) => {
+            await api(`/notifications/${notificationId}/read`, {
+              token: session.token,
+              method: "POST",
+            });
+            await loadNotifications();
+          }}
+          onReadAll={async () => {
+            await api("/notifications/read-all", {
+              token: session.token,
+              method: "POST",
+            });
+            await loadNotifications();
+          }}
+        />
+      )}
+      {settlementTransfer && (
+        <SettlementDialog
+          group={group}
+          transfer={settlementTransfer}
+          token={session.token}
+          onClose={() => setSettlementTransfer(null)}
+          done={refresh}
+        />
+      )}
     </>
   );
 }
 
-function DashboardHeader({ user, logout, unread, balanceCount, onBalances, onNotifications }) {
+function DashboardHeader({ user, logout, unread, onHome, onNotifications }) {
   return (
     <AppBar color="inherit" position="sticky" elevation={0}>
       <Toolbar>
-        <Stack
-          direction="row"
-          spacing={1}
-          sx={{ flexGrow: 1, alignItems: "center" }}
+        <ButtonBase
+          onClick={onHome}
+          sx={{ borderRadius: 1 }}
         >
-          <Avatar className="mini-brand">
-            <Paid />
-          </Avatar>
-          <Typography fontWeight={800}>Делим вместе</Typography>
-        </Stack>
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+            <Avatar className="mini-brand">
+              <Paid />
+            </Avatar>
+            <Typography fontWeight={800}>Делим вместе</Typography>
+          </Stack>
+        </ButtonBase>
+        <Box sx={{ flexGrow: 1 }} />
         <Typography sx={{ mr: 1 }}>{user.name}</Typography>
-        <Button size="small" onClick={onBalances}><Badge badgeContent={balanceCount} color="primary">Балансы</Badge></Button>
-        <IconButton onClick={onNotifications}><Badge badgeContent={unread} color="secondary"><Notifications /></Badge></IconButton>
+        <IconButton onClick={onNotifications}>
+          <Badge badgeContent={unread} color="secondary">
+            <Notifications />
+          </Badge>
+        </IconButton>
         <IconButton onClick={logout}>
           <Logout />
         </IconButton>
@@ -338,25 +410,60 @@ function DashboardActions({ loadGroups, loadAllBalances, openGroupDialog }) {
 function BalancesOverview({ debts, settlements, onBack }) {
   return (
     <Stack spacing={3}>
-      <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
+      <Stack
+        direction="row"
+        sx={{ justifyContent: "space-between", alignItems: "center" }}
+      >
         <Box>
           <Typography variant="h4">Балансы</Typography>
-          <Typography color="text.secondary">Все текущие задолженности и погашения</Typography>
+          <Typography color="text.secondary">
+            Все текущие задолженности и погашения
+          </Typography>
         </Box>
         <Button onClick={onBack}>К группам</Button>
       </Stack>
       <Paper className="panel" elevation={0} sx={{ p: 2 }}>
-        <Typography variant="h6" sx={{ mb: 1 }}>Текущие задолженности</Typography>
+        <Typography variant="h6" sx={{ mb: 1 }}>
+          Текущие задолженности
+        </Typography>
         <List>
-          {debts.map((item, index) => <ListItem key={`${item.currency}-${index}`} divider><ListItemText primary={`${item.group_name} · ${item.currency}`} secondary={`${item.from_user?.name || "Участник"} → ${item.to_user?.name || "Участник"} (${item.to_user?.email || ""})`} /><Typography fontWeight={800}>{money(item.amount_cents, item.currency)}</Typography></ListItem>)}
-          {debts.length === 0 && <Typography color="text.secondary">Непогашенных задолженностей нет.</Typography>}
+          {debts.map((item, index) => (
+            <ListItem key={`${item.currency}-${index}`} divider>
+              <ListItemText
+                primary={`${item.group_name} · ${item.currency}`}
+                secondary={`${item.from_user?.name || "Участник"} → ${item.to_user?.name || "Участник"} (${item.to_user?.email || ""})`}
+              />
+              <Typography fontWeight={800}>
+                {money(item.amount_cents, item.currency)}
+              </Typography>
+            </ListItem>
+          ))}
+          {debts.length === 0 && (
+            <Typography color="text.secondary">
+              Непогашенных задолженностей нет.
+            </Typography>
+          )}
         </List>
       </Paper>
       <Paper className="panel" elevation={0} sx={{ p: 2 }}>
-        <Typography variant="h6" sx={{ mb: 1 }}>Все транзакции</Typography>
+        <Typography variant="h6" sx={{ mb: 1 }}>
+          Все транзакции
+        </Typography>
         <List>
-          {settlements.map((item) => <ListItem key={item.id} divider><ListItemText primary={`${item.from_user?.name || "Участник"} → ${item.to_user?.name || "Участник"}`} secondary={`${item.group?.name || "Группа"} · ${item.status === "confirmed" ? "Подтверждено" : "Ожидает подтверждения"}`} /><Typography fontWeight={800}>{money(item.amount_cents, item.group?.currency)}</Typography></ListItem>)}
-          {settlements.length === 0 && <Typography color="text.secondary">Транзакций пока нет.</Typography>}
+          {settlements.map((item) => (
+            <ListItem key={item.id} divider>
+              <ListItemText
+                primary={`${item.from_user?.name || "Участник"} → ${item.to_user?.name || "Участник"}`}
+                secondary={`${item.group?.name || "Группа"} · ${item.status === "confirmed" ? "Подтверждено" : "Ожидает подтверждения"}`}
+              />
+              <Typography fontWeight={800}>
+                {money(item.amount_cents, item.group?.currency)}
+              </Typography>
+            </ListItem>
+          ))}
+          {settlements.length === 0 && (
+            <Typography color="text.secondary">Транзакций пока нет.</Typography>
+          )}
         </List>
       </Paper>
     </Stack>
@@ -483,7 +590,17 @@ function GroupDetails({
             />
           )}
           {tab === 1 && (
-            <BalancesTab group={group} balances={balances} currency={group.currency} members={group.members} settlements={settlements} token={token} currentUserId={currentUserId} refresh={refresh} onSettle={onSettle} />
+            <BalancesTab
+              group={group}
+              balances={balances}
+              currency={group.currency}
+              members={group.members}
+              settlements={settlements}
+              token={token}
+              currentUserId={currentUserId}
+              refresh={refresh}
+              onSettle={onSettle}
+            />
           )}
           {tab === 2 && <MembersTab members={group.members} />}
         </>
@@ -559,7 +676,16 @@ function ExpensesTab({ group, expenses, onCreate, onEdit, onDelete, onView }) {
   );
 }
 
-function BalancesTab({ balances, currency, members, settlements, token, currentUserId, refresh, onSettle }) {
+function BalancesTab({
+  balances,
+  currency,
+  members,
+  settlements,
+  token,
+  currentUserId,
+  refresh,
+  onSettle,
+}) {
   if (!balances) return <CircularProgress />;
 
   const person = (id) => {
@@ -567,7 +693,10 @@ function BalancesTab({ balances, currency, members, settlements, token, currentU
     return user ? `${user.name} (${user.email})` : `Участник #${id}`;
   };
   const confirm = async (settlement) => {
-    await api(`/settlements/${settlement.id}/confirm`, { token, method: "POST" });
+    await api(`/settlements/${settlement.id}/confirm`, {
+      token,
+      method: "POST",
+    });
     refresh();
   };
 
@@ -582,9 +711,41 @@ function BalancesTab({ balances, currency, members, settlements, token, currentU
         </CardContent>
       </Card>
       {balances.suggested_transfers?.map((item, index) => {
-        return <Alert key={index} icon={<Send />} action={item.from_user_id === currentUserId ? <Button size="small" onClick={() => onSettle(item)}>Погасить</Button> : null}>{person(item.from_user_id)} → {person(item.to_user_id)}: {money(item.amount_cents, currency)}</Alert>;
+        return (
+          <Alert
+            key={index}
+            icon={<Send />}
+            action={
+              item.from_user_id === currentUserId ? (
+                <Button size="small" onClick={() => onSettle(item)}>
+                  Погасить
+                </Button>
+              ) : null
+            }
+          >
+            {person(item.from_user_id)} → {person(item.to_user_id)}:{" "}
+            {money(item.amount_cents, currency)}
+          </Alert>
+        );
       }) || null}
-      {settlements.filter((item) => item.status === "pending").map((item) => <Alert key={`pending-${item.id}`} severity="warning" action={item.to_user_id === currentUserId ? <Button size="small" onClick={() => confirm(item)}>Подтвердить</Button> : null}>Ожидает подтверждения: {item.from_user?.name} → {item.to_user?.name}, {money(item.amount_cents, currency)}</Alert>)}
+      {settlements
+        .filter((item) => item.status === "pending")
+        .map((item) => (
+          <Alert
+            key={`pending-${item.id}`}
+            severity="warning"
+            action={
+              item.to_user_id === currentUserId ? (
+                <Button size="small" onClick={() => confirm(item)}>
+                  Подтвердить
+                </Button>
+              ) : null
+            }
+          >
+            Ожидает подтверждения: {item.from_user?.name} → {item.to_user?.name}
+            , {money(item.amount_cents, currency)}
+          </Alert>
+        ))}
       {!balances.suggested_transfers?.length && (
         <Alert severity="success">Все рассчитались.</Alert>
       )}
