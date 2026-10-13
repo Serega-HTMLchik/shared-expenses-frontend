@@ -37,6 +37,8 @@ import {
   Tab,
   Tabs,
   Toolbar,
+  ToggleButton,
+  ToggleButtonGroup,
   Tooltip,
   Typography,
 } from "@mui/material";
@@ -57,6 +59,7 @@ export default function Dashboard({ session, logout }) {
   const [group, setGroup] = useState(null);
   const [expenses, setExpenses] = useState([]);
   const [balances, setBalances] = useState(null);
+  const [groupBalanceData, setGroupBalanceData] = useState([]);
   const [allBalances, setAllBalances] = useState(null);
   const [allSettlements, setAllSettlements] = useState([]);
   const [settlements, setSettlements] = useState([]);
@@ -73,7 +76,13 @@ export default function Dashboard({ session, logout }) {
 
   const loadGroups = useCallback(async () => {
     try {
-      setGroups(await api("/groups", { token: session.token }));
+      const [groupData, balanceData] = await Promise.all([
+        api("/groups", { token: session.token }),
+        api("/balances", { token: session.token }),
+      ]);
+
+      setGroups(groupData);
+      setGroupBalanceData(balanceData);
     } catch (requestError) {
       setError(requestError.message);
     }
@@ -232,7 +241,13 @@ export default function Dashboard({ session, logout }) {
             )}
             <Grid container spacing={3}>
               <Grid size={{ xs: 12, md: 4 }}>
-                <GroupList groups={groups} group={group} onOpen={openGroup} />
+                <GroupList
+                  groups={groups}
+                  group={group}
+                  balanceData={groupBalanceData}
+                  currentUserId={session.user.id}
+                  onOpen={openGroup}
+                />
               </Grid>
               <Grid size={{ xs: 12, md: 8 }}>
                 <GroupDetails
@@ -345,10 +360,7 @@ function DashboardHeader({ user, logout, unread, onHome, onNotifications }) {
   return (
     <AppBar color="inherit" position="sticky" elevation={0}>
       <Toolbar>
-        <ButtonBase
-          onClick={onHome}
-          sx={{ borderRadius: 1 }}
-        >
+        <ButtonBase onClick={onHome} sx={{ borderRadius: 1 }}>
           <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
             <Avatar className="mini-brand">
               <Paid />
@@ -470,15 +482,119 @@ function BalancesOverview({ debts, settlements, onBack }) {
   );
 }
 
-function GroupList({ groups, group, onOpen }) {
+function GroupList({ groups, group, balanceData, currentUserId, onOpen }) {
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [balanceFilter, setBalanceFilter] = useState("all");
+  const balancesByGroup = Object.fromEntries(
+    balanceData.map((item) => [
+      item.group_id,
+      item.balances[currentUserId] || 0,
+    ]),
+  );
+  const filteredGroups = groups.filter((item) => {
+    if (statusFilter === "open" && item.closed_at) {
+      return false;
+    }
+
+    if (statusFilter === "closed" && !item.closed_at) {
+      return false;
+    }
+
+    if (balanceFilter === "owe" && balancesByGroup[item.id] >= 0) {
+      return false;
+    }
+
+    if (balanceFilter === "owed" && balancesByGroup[item.id] <= 0) {
+      return false;
+    }
+
+    return true;
+  });
+
   return (
     <Paper className="panel" elevation={0}>
       <Stack direction="row" sx={{ p: 2, justifyContent: "space-between" }}>
         <Typography variant="h6">Мои группы</Typography>
         <Chip label={groups.length} size="small" />
       </Stack>
+      <Stack spacing={1.5} sx={{ px: 2, pb: 1.5 }}>
+        <Box>
+          <Typography color="text.secondary" variant="caption">
+            Статус
+          </Typography>
+          <ToggleButtonGroup
+            exclusive
+            fullWidth
+            size="small"
+            value={statusFilter}
+            onChange={(_, value) => value && setStatusFilter(value)}
+          >
+            <ToggleButton
+              sx={{
+                fontSize: "10px",
+              }}
+              value="all"
+            >
+              Все
+            </ToggleButton>
+            <ToggleButton
+              sx={{
+                fontSize: "10px",
+              }}
+              value="open"
+            >
+              Открытые
+            </ToggleButton>
+            <ToggleButton
+              sx={{
+                fontSize: "10px",
+              }}
+              value="closed"
+            >
+              Закрытые
+            </ToggleButton>
+          </ToggleButtonGroup>
+        </Box>
+        <Box>
+          <Typography color="text.secondary" variant="caption">
+            Баланс
+          </Typography>
+          <ToggleButtonGroup
+            exclusive
+            fullWidth
+            size="small"
+            value={balanceFilter}
+            onChange={(_, value) => value && setBalanceFilter(value)}
+          >
+            <ToggleButton
+              sx={{
+                fontSize: "10px",
+              }}
+              value="all"
+            >
+              Любой
+            </ToggleButton>
+            <ToggleButton
+              sx={{
+                fontSize: "10px",
+              }}
+              value="owe"
+            >
+              Я должен
+            </ToggleButton>
+            <ToggleButton
+              sx={{
+                fontSize: "10px",
+              }}
+              value="owed"
+            >
+              Мне должны
+            </ToggleButton>
+          </ToggleButtonGroup>
+        </Box>
+      </Stack>
       <List>
-        {groups.map((item) => (
+        {filteredGroups.map((item) => (
           <ListItem
             key={item.id}
             className={`group-item ${group?.id === item.id ? "active" : ""}`}
@@ -504,10 +620,14 @@ function GroupList({ groups, group, onOpen }) {
             />
           </ListItem>
         ))}
-        {groups.length === 0 && (
+        {filteredGroups.length === 0 && (
           <Box className="empty">
             <Group color="disabled" sx={{ fontSize: 50 }} />
-            <Typography>Нет групп</Typography>
+            <Typography>
+              {groups.length === 0
+                ? "Нет групп"
+                : "Нет групп по выбранному фильтру"}
+            </Typography>
           </Box>
         )}
       </List>
