@@ -29,7 +29,7 @@ cp docker-compose.env.example .env
 docker compose up --build
 ```
 
-Откройте `http://localhost:5173`. Контейнер фронтенда передаёт `/api/*` в Laravel и `/app/*` в Reverb, поэтому браузер использует один origin и не требует отдельной настройки CORS.
+Откройте `http://localhost:5173`. В Docker-сборке API запрашивается напрямую по `http://localhost:8000/api/v1`; Laravel разрешает этот origin через CORS.
 
 Для остановки используйте `docker compose down`; данные PostgreSQL и загруженные файлы сохраняются в Docker volumes.
 
@@ -39,8 +39,11 @@ docker compose up --build
 
 ```dotenv
 FRONTEND_PUBLIC_URL=https://expenses.example.com
-APP_URL=https://expenses.example.com
+API_PUBLIC_URL=https://api.expenses.example.com
 FRONTEND_URL=https://expenses.example.com
+CORS_ALLOWED_ORIGINS=https://expenses.example.com
+REVERB_ALLOWED_ORIGINS=https://expenses.example.com
+VITE_REVERB_HOST=api.expenses.example.com
 VITE_REVERB_PORT=443
 VITE_REVERB_SCHEME=https
 ```
